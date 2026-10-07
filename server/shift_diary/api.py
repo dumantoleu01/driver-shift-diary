@@ -69,6 +69,9 @@ class DayCountOut(BaseModel):
 
 
 class DaysOut(BaseModel):
+    #: Пояс сервиса вида `+05:00`. Клиент берёт его отсюда, а не из своих настроек: в этом
+    #: поясе он показывает время и переводит в момент то, что водитель ввёл в форме.
+    utc_offset: str
     days: list[DayCountOut]
 
 
@@ -159,7 +162,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.get("/api/days", summary="Дни, в которых есть поездки")
     def list_days() -> DaysOut:
         counts = count_by_day(store.starts(), zone)
-        return DaysOut(days=[DayCountOut(date=day, trips=trips) for day, trips in counts.items()])
+        return DaysOut(
+            utc_offset=settings.utc_offset.strip(),
+            days=[DayCountOut(date=day, trips=trips) for day, trips in counts.items()],
+        )
 
     @app.get(
         "/api/days/{day}",

@@ -179,18 +179,19 @@ def test_bad_date_is_400(client: TestClient, date: str) -> None:
 def test_days_with_trips(sample: TestClient) -> None:
     """Пустого 2 октября в списке нет; t13 и t14 посчитаны в своих днях."""
     assert sample.get("/api/days").json() == {
+        "utc_offset": "+05:00",
         "days": [
             {"date": "2026-09-29", "trips": 5},
             {"date": "2026-09-30", "trips": 6},
             {"date": "2026-10-01", "trips": 6},
             {"date": "2026-10-03", "trips": 4},
             {"date": "2026-10-04", "trips": 6},
-        ]
+        ],
     }
 
 
 def test_no_days_without_trips(client: TestClient) -> None:
-    assert client.get("/api/days").json() == {"days": []}
+    assert client.get("/api/days").json() == {"utc_offset": "+05:00", "days": []}
 
 
 def test_restart_does_not_double_the_sample(tmp_path: Path) -> None:
@@ -244,6 +245,7 @@ def test_zone_comes_from_settings(tmp_path: Path) -> None:
 
     [stored] = day(client, "2026-10-02")["trips"]
     assert stored["start"] == "2026-10-02T00:30:00+06:00"
+    assert client.get("/api/days").json()["utc_offset"] == "+06:00"
 
 
 # --- защита от дублей -----------------------------------------------------------------------
@@ -384,7 +386,7 @@ def test_bad_trip_is_422_and_not_stored(
     error = response.json()["error"]
     assert error["code"] == "validation_failed"
     assert error["fields"] == {field: code}
-    assert client.get("/api/days").json() == {"days": []}
+    assert client.get("/api/days").json()["days"] == []
 
 
 @pytest.mark.parametrize(
