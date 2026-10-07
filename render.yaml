@@ -1,0 +1,14 @@
+# Сервер на бесплатном тарифе Render: New → Blueprint → выбрать этот репозиторий.
+#
+# Два свойства бесплатного тарифа, о которых стоит знать:
+#   * сервер засыпает без запросов и на первый запрос после паузы отвечает до минуты;
+#   * диск не постоянный: при перезапуске база создаётся заново из data/trips.json,
+#     добавленные поездки пропадают.
+services:
+  - type: web
+    name: shift-diary
+    runtime: docker
+    plan: free
+    dockerfilePath: ./server/Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
