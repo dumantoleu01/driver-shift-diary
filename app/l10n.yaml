@@ -1,0 +1,7 @@
+# Тексты интерфейса: lib/l10n/app_ru.arb -> класс AppLocalizations.
+arb-dir: lib/l10n
+template-arb-file: app_ru.arb
+output-localization-file: app_localizations.dart
+output-class: AppLocalizations
+# of(context) возвращает non-null — в виджетах не нужен «!».
+nullable-getter: false

@@ -1,0 +1,98 @@
+{
+  "@@locale": "ru",
+
+  "appTitle": "Дневник смен",
+  "retry": "Повторить",
+
+  "dayToday": "Сегодня",
+  "dayYesterday": "Вчера",
+  "dayPrevious": "Предыдущий день",
+  "dayNext": "Следующий день",
+  "dayPick": "Выбрать день",
+
+  "summaryNet": "На руки",
+  "summaryTrips": "Поездок",
+  "summaryRevenue": "Выручка",
+  "summaryCommission": "Комиссия",
+  "paymentCash": "Наличные",
+  "paymentCard": "Карта",
+  "tripsCount": "{count, plural, =0{нет поездок} one{{count} поездка} few{{count} поездки} many{{count} поездок} other{{count} поездки}}",
+  "@tripsCount": {
+    "placeholders": {"count": {"type": "int"}}
+  },
+
+  "tripsHeader": "Поездки",
+  "tripsEmptyTitle": "В этот день поездок нет",
+  "tripsEmptyHint": "Добавьте поездку или выберите другой день",
+  "tripAdd": "Поездка",
+  "tripCommission": "комиссия {amount}",
+  "@tripCommission": {
+    "placeholders": {"amount": {"type": "String"}}
+  },
+  "tripNet": "на руки {amount}",
+  "@tripNet": {
+    "placeholders": {"amount": {"type": "String"}}
+  },
+  "tripEndsNextDay": "след. день",
+  "durationMinutes": "{minutes} мин",
+  "@durationMinutes": {
+    "placeholders": {"minutes": {"type": "int"}}
+  },
+  "durationHoursMinutes": "{hours} ч {minutes} мин",
+  "@durationHoursMinutes": {
+    "placeholders": {"hours": {"type": "int"}, "minutes": {"type": "int"}}
+  },
+
+  "formTitle": "Новая поездка",
+  "formStart": "Начало",
+  "formEnd": "Окончание",
+  "formDate": "Дата",
+  "formTime": "Время",
+  "formAmount": "Сумма, {currency}",
+  "@formAmount": {
+    "placeholders": {"currency": {"type": "String"}}
+  },
+  "formPayment": "Оплата",
+  "formCommission": "Комиссия, {currency}",
+  "@formCommission": {
+    "placeholders": {"currency": {"type": "String"}}
+  },
+  "formCommissionAuto": "Подставлено {percent}% от суммы — можно изменить",
+  "@formCommissionAuto": {
+    "placeholders": {"percent": {"type": "int"}}
+  },
+  "formNet": "На руки: {amount}",
+  "@formNet": {
+    "placeholders": {"amount": {"type": "String"}}
+  },
+  "formSave": "Сохранить",
+  "formRetry": "Повторить отправку",
+  "formRetryHint": "Если поездка уже дошла до сервера, дубль не появится",
+  "formSaved": "Поездка добавлена",
+  "formAlreadySaved": "Такая поездка уже записана — дубль не создан",
+
+  "fieldRequired": "Заполните поле",
+  "fieldWholeNumber": "Введите целое число",
+  "fieldAmountPositive": "Сумма должна быть больше нуля",
+  "fieldAmountTooLarge": "Слишком большая сумма",
+  "fieldEndAfterStart": "Окончание должно быть позже начала",
+  "fieldCommissionNegative": "Комиссия не может быть меньше нуля",
+  "fieldCommissionExceeds": "Комиссия не может быть больше суммы",
+  "fieldOutOfRange": "Дата слишком далеко от сегодняшней",
+  "fieldInvalid": "Недопустимое значение",
+
+  "errNoInternetTitle": "Нет связи с сервером",
+  "errNoInternetHint": "Проверьте интернет и попробуйте ещё раз",
+  "errTimeoutTitle": "Сервер долго не отвечает",
+  "errTimeoutHint": "Связь медленная — попробуйте ещё раз",
+  "errServerTitle": "Сервер недоступен",
+  "errServerHint": "Попробуйте позже",
+  "errBadResponseTitle": "Не удалось прочитать ответ сервера",
+  "errBadResponseHint": "Обновите приложение или попробуйте позже",
+  "errTripRejectedTitle": "Сервер не принял поездку",
+  "errTripRejectedHint": "Проверьте данные и попробуйте ещё раз",
+  "errTripConflictTitle": "Не удалось сохранить поездку",
+  "errTripConflictHint": "Закройте форму и добавьте поездку заново",
+  "errUnknownTitle": "Что-то пошло не так",
+  "errUnknownHint": "Попробуйте ещё раз"
+}
