@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -127,6 +129,58 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(cubit.state.day, const CalendarDay(2026, 9, 30));
+  });
+
+  for (final day in const [
+    CalendarDay(2019, 12, 31),
+    CalendarDay(2030, 5, 5),
+  ]) {
+    testWidgets(
+      'календарь открывается и для дня далеко от сегодняшнего: $day',
+      (tester) async {
+        // Сервер принимает поездки с 2000 по 2099 год — такой день может
+        // оказаться последним в дневнике, и приложение откроется на нём.
+        repo.index = indexOf([day]);
+        await open(tester);
+
+        await tester.tap(find.byKey(const ValueKey('day-pick')));
+        await tester.pumpAndSettle();
+
+        expect(tester.takeException(), isNull);
+        expect(find.byType(DatePickerDialog), findsOneWidget);
+      },
+    );
+  }
+
+  testWidgets('долгая загрузка объясняет, почему долго', (tester) async {
+    usePhoneScreen(tester);
+    repo.holdReports = true;
+    await tester.pumpWidget(
+      BlocProvider.value(
+        value: cubit,
+        child: testApp(home: const DayPage()),
+      ),
+    );
+    unawaited(cubit.start());
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(
+      find.textContaining('Сервер отвечает дольше обычного'),
+      findsNothing,
+    );
+
+    await tester.pump(const Duration(seconds: 4));
+
+    expect(
+      find.textContaining('Сервер отвечает дольше обычного'),
+      findsOneWidget,
+    );
+
+    repo.replyReport(oct1, reportOf(oct1, [t1]));
+    await tester.pumpAndSettle();
+
+    expect(find.text('08:10 – 08:32'), findsOneWidget);
   });
 
   testWidgets('сбой загрузки — понятный текст и повтор; текст исключения на '

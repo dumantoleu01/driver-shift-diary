@@ -29,6 +29,7 @@ abstract final class FieldCodes {
   static const invalidType = 'invalid_type';
   static const outOfRange = 'out_of_range';
   static const mustBeAfterStart = 'must_be_after_start';
+  static const tooLong = 'too_long';
   static const mustBePositive = 'must_be_positive';
   static const tooLarge = 'too_large';
   static const mustNotBeNegative = 'must_not_be_negative';
@@ -37,6 +38,10 @@ abstract final class FieldCodes {
 
 /// Наибольшая сумма поездки, которую принимает сервер.
 const maxTripAmount = 100000000;
+
+/// Наибольшая длительность поездки. Записанную поездку нельзя ни исправить, ни
+/// удалить, поэтому опечатка в дате окончания ловится до отправки.
+const maxTripDuration = Duration(hours: 24);
 
 final _digits = RegExp(r'^\d{1,12}$');
 
@@ -63,6 +68,8 @@ Map<TripField, String> checkTripForm({
 
   if (!end.isAfter(start)) {
     found[TripField.end] = FieldCodes.mustBeAfterStart;
+  } else if (end.difference(start) > maxTripDuration) {
+    found[TripField.end] = FieldCodes.tooLong;
   }
 
   final amount = parseWholeNumber(amountText);

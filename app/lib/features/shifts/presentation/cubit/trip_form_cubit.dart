@@ -26,10 +26,15 @@ class TripFormCubit extends Cubit<TripFormState> {
     required String tripId,
     DateTime Function() now = DateTime.now,
   }) : _zone = zone,
+       _now = now,
        super(_initial(zone: zone, day: day, tripId: tripId, now: now()));
 
   final AddTrip _addTrip;
   final ServiceZone _zone;
+  final DateTime Function() _now;
+
+  /// Сегодняшний день в поясе сервиса — для отметки в календаре.
+  CalendarDay get today => _zone.dayOf(_now());
 
   /// Сколько длится поездка, которую форма предлагает по умолчанию.
   static const _defaultLength = Duration(minutes: 20);
@@ -65,22 +70,39 @@ class TripFormCubit extends Cubit<TripFormState> {
 
   void startDayChanged(CalendarDay day) {
     if (!state.canEdit) return;
-    // Обычная поездка заканчивается в день начала: пока водитель не развёл
-    // даты сам, дата окончания идёт следом.
-    final endFollows = state.endDay == state.startDay;
-    _edit(
-      state.copyWith(startDay: day, endDay: endFollows ? day : null),
-      touched: {TripField.start, TripField.end},
-    );
+    _moveStart(day: day, time: state.startTime);
   }
 
   void startTimeChanged(ClockTime time) {
     if (!state.canEdit) return;
+    _moveStart(day: state.startDay, time: time);
+  }
+
+  /// Сдвинуть начало. Окончание сдвигается следом на столько же, то есть
+  /// длительность поездки сохраняется.
+  ///
+  /// Иначе перенос начала на другой день оставлял бы окончание на прежнем — и
+  /// получалась бы «поездка» в несколько суток, которую потом нечем исправить.
+  void _moveStart({required CalendarDay day, required ClockTime time}) {
+    final shift = _instant(
+      day,
+      time,
+    ).difference(_instant(state.startDay, state.startTime));
+    final end = _instant(state.endDay, state.endTime).add(shift);
+    final endClock = _zone.wallClock(end);
     _edit(
-      state.copyWith(startTime: time),
+      state.copyWith(
+        startDay: day,
+        startTime: time,
+        endDay: _zone.dayOf(end),
+        endTime: ClockTime(endClock.hour, endClock.minute),
+      ),
       touched: {TripField.start, TripField.end},
     );
   }
+
+  DateTime _instant(CalendarDay day, ClockTime time) =>
+      _zone.instantAt(day, hour: time.hour, minute: time.minute);
 
   void endDayChanged(CalendarDay day) {
     if (!state.canEdit) return;
@@ -128,16 +150,8 @@ class TripFormCubit extends Cubit<TripFormState> {
     // Двойное нажатие: вторая отправка не начинается, пока идёт первая.
     if (state.isSubmitting || state.status == TripFormStatus.saved) return;
 
-    final start = _zone.instantAt(
-      state.startDay,
-      hour: state.startTime.hour,
-      minute: state.startTime.minute,
-    );
-    final end = _zone.instantAt(
-      state.endDay,
-      hour: state.endTime.hour,
-      minute: state.endTime.minute,
-    );
+    final start = _instant(state.startDay, state.startTime);
+    final end = _instant(state.endDay, state.endTime);
 
     final errors = checkTripForm(
       start: start,

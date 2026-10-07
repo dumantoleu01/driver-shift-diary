@@ -6,12 +6,6 @@
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
 	<string>Дневник смен</string>
-	<key>NSAppTransportSecurity</key>
-	<dict>
-		<!-- HTTP разрешён только внутри локальной сети — для сервера на машине разработчика. -->
-		<key>NSAllowsLocalNetworking</key>
-		<true/>
-	</dict>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Приложение обращается к серверу дневника смен в локальной сети.</string>
 	<key>CFBundleExecutable</key>

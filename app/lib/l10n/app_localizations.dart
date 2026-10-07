@@ -106,6 +106,12 @@ abstract class AppLocalizations {
   /// **'Повторить'**
   String get retry;
 
+  /// No description provided for @loadingSlow.
+  ///
+  /// In ru, this message translates to:
+  /// **'Сервер отвечает дольше обычного. Если он спал, первый ответ придёт в течение минуты'**
+  String get loadingSlow;
+
   /// No description provided for @dayToday.
   ///
   /// In ru, this message translates to:
@@ -322,6 +328,12 @@ abstract class AppLocalizations {
   /// **'Такая поездка уже записана — дубль не создан'**
   String get formAlreadySaved;
 
+  /// No description provided for @formOutcomeUnknown.
+  ///
+  /// In ru, this message translates to:
+  /// **'Неизвестно, записалась ли поездка. Проверьте список, прежде чем вводить её заново'**
+  String get formOutcomeUnknown;
+
   /// No description provided for @fieldRequired.
   ///
   /// In ru, this message translates to:
@@ -351,6 +363,12 @@ abstract class AppLocalizations {
   /// In ru, this message translates to:
   /// **'Окончание должно быть позже начала'**
   String get fieldEndAfterStart;
+
+  /// No description provided for @fieldTripTooLong.
+  ///
+  /// In ru, this message translates to:
+  /// **'Поездка не может длиться дольше суток — проверьте даты'**
+  String get fieldTripTooLong;
 
   /// No description provided for @fieldCommissionNegative.
   ///

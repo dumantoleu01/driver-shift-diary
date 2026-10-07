@@ -98,15 +98,50 @@ void main() {
       expect(cubit.state.commissionText, '500');
     });
 
-    test('дата окончания идёт за датой начала, пока их не развели', () {
+    test('перенос начала сдвигает окончание следом — длительность та же', () {
       cubit.startDayChanged(oct1);
       expect(cubit.state.endDay, oct1);
+      expect(cubit.state.endTime, const ClockTime(15, 47));
 
-      cubit
-        ..endDayChanged(oct2)
-        ..startDayChanged(sep30);
-      expect(cubit.state.endDay, oct2);
+      cubit.startTimeChanged(const ClockTime(9, 0));
+      expect(cubit.state.endDay, oct1);
+      expect(cubit.state.endTime, const ClockTime(9, 20));
     });
+
+    test('начало перед самой полуночью уводит окончание на следующий день', () {
+      cubit.startTimeChanged(const ClockTime(23, 50));
+
+      expect(cubit.state.startDay, oct4);
+      expect(cubit.state.endDay, const CalendarDay(2026, 10, 5));
+      expect(cubit.state.endTime, const ClockTime(0, 10));
+    });
+
+    test('форма, открытая сразу после полуночи: перенос начала на другой день '
+        'не оставляет окончание на прежнем', () {
+      // По умолчанию 23:50 4 октября – 00:10 5 октября: даты уже разные.
+      cubit = open(
+        const CalendarDay(2026, 10, 5),
+        now: DateTime.utc(2026, 10, 4, 19, 10),
+      );
+
+      cubit.startDayChanged(oct2);
+
+      expect(cubit.state.startDay, oct2);
+      expect(cubit.state.endDay, const CalendarDay(2026, 10, 3));
+      expect(cubit.state.endTime, const ClockTime(0, 10));
+    });
+
+    test(
+      'своё окончание водитель задаёт после начала — оно не сбрасывается',
+      () {
+        cubit
+          ..startTimeChanged(const ClockTime(9, 0))
+          ..endTimeChanged(const ClockTime(9, 45));
+
+        expect(cubit.state.startTime, const ClockTime(9, 0));
+        expect(cubit.state.endTime, const ClockTime(9, 45));
+      },
+    );
   });
 
   group('TripFormCubit — проверка перед отправкой', () {
@@ -129,6 +164,16 @@ void main() {
       expect(cubit.state.fieldErrors, {
         TripField.end: FieldCodes.mustBeAfterStart,
       });
+      expect(repo.sentDrafts, isEmpty);
+    });
+
+    test('окончание через двое суток не отправляется', () async {
+      fill();
+      cubit.endDayChanged(const CalendarDay(2026, 10, 6));
+
+      await cubit.submit();
+
+      expect(cubit.state.fieldErrors, {TripField.end: FieldCodes.tooLong});
       expect(repo.sentDrafts, isEmpty);
     });
 

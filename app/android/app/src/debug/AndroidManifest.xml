@@ -4,8 +4,4 @@
          to allow setting breakpoints, to provide hot reload, etc.
     -->
     <uses-permission android:name="android.permission.INTERNET"/>
-
-    <!-- Только отладочная сборка ходит по HTTP — на локальный сервер разработчика.
-         Релизная сборка этого разрешения не получает и работает только по HTTPS. -->
-    <application android:usesCleartextTraffic="true"/>
 </manifest>

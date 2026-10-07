@@ -1,6 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- Шаблон Flutter даёт доступ в сеть только отладочной сборке. Без этой строки
-         релизный APK собирается и запускается, но ни одного запроса отправить не может. -->
+         релизный APK собирается и запускается, но ни одного запроса отправить не может:
+         проверено сборкой без неё — приложение показывает «Нет связи с сервером». -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <application
         android:label="Дневник смен"

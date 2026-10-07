@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -9,14 +11,15 @@ import '../../../../core/time/calendar_day.dart';
 import '../../../../core/time/service_zone.dart';
 import '../../../../core/widgets/app_error_view.dart';
 import '../../../../core/widgets/app_snack.dart';
+import '../../../../core/widgets/day_picker.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../domain/entities/day_report.dart';
-import '../../domain/entities/trip.dart';
 import '../cubit/day_cubit.dart';
 import '../cubit/day_state.dart';
 import '../widgets/day_switcher.dart';
 import '../widgets/summary_card.dart';
 import '../widgets/trip_tile.dart';
+import 'trip_form_exit.dart';
 
 /// Главный экран: сводка за день, поездки и переключение дней.
 class DayPage extends StatelessWidget {
@@ -73,9 +76,7 @@ class DayPage extends StatelessWidget {
     if (state.status == DayStatus.error) {
       return AppErrorView(error: state.errorCode, onRetry: cubit.start);
     }
-    if (report == null || zone == null) {
-      return const Center(child: CircularProgressIndicator());
-    }
+    if (report == null || zone == null) return const _Loading();
     return RefreshIndicator(
       onRefresh: cubit.refresh,
       child: _DayContent(report: report, zone: zone),
@@ -87,19 +88,13 @@ class DayPage extends StatelessWidget {
     ServiceZone zone,
     CalendarDay day,
   ) async {
-    final today = zone.dayOf(DateTime.now());
-    // Календарю нужен DateTime, но смысл у него здесь — только дата: год,
-    // месяц и число берутся как есть, без перевода между поясами.
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: DateTime(day.year, day.month, day.day),
-      firstDate: DateTime(2020),
-      lastDate: DateTime(today.year + 1, 12, 31),
+    final picked = await pickDay(
+      context,
+      initial: day,
+      today: zone.dayOf(DateTime.now()),
     );
     if (picked == null || !context.mounted) return;
-    await context.read<DayCubit>().selectDay(
-      CalendarDay(picked.year, picked.month, picked.day),
-    );
+    await context.read<DayCubit>().selectDay(picked);
   }
 
   Future<void> _addTrip(
@@ -108,16 +103,26 @@ class DayPage extends StatelessWidget {
     CalendarDay day,
   ) async {
     final cubit = context.read<DayCubit>();
-    final added = await context.push<Trip>(
+    final exit = await context.push<TripFormExit>(
       AppRouter.newTrip,
       extra: TripFormArgs(zone: zone, day: day),
     );
-    if (added != null) {
-      await cubit.showTrip(added);
-    } else {
-      // Форму закрыли без подтверждения от сервера. Если отправка оборвалась
-      // на полпути, поездка могла записаться — список покажет, как есть.
-      await cubit.refresh();
+    switch (exit) {
+      case TripSaved(:final trip):
+        await cubit.showTrip(trip);
+      case TripOutcomeUnknown(:final day):
+        // Отправка оборвалась, и форму закрыли, не дождавшись ответа. Поездка
+        // могла записаться: открываем её день и просим свериться со списком —
+        // иначе водитель введёт её второй раз.
+        if (context.mounted) {
+          showInfoSnack(
+            context,
+            AppLocalizations.of(context).formOutcomeUnknown,
+          );
+        }
+        await cubit.showDay(day);
+      case null:
+        break;
     }
   }
 }
@@ -198,6 +203,60 @@ class _EmptyDay extends StatelessWidget {
             style: text.bodyMedium?.copyWith(color: colors.textSecondary),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Загрузка. Если ответа нет дольше нескольких секунд, объясняет почему: сервер
+/// на бесплатном хостинге просыпается до минуты, и молчащий индикатор всё это
+/// время выглядел бы как зависшее приложение.
+class _Loading extends StatefulWidget {
+  const _Loading();
+
+  @override
+  State<_Loading> createState() => _LoadingState();
+}
+
+class _LoadingState extends State<_Loading> {
+  static const _patience = Duration(seconds: 4);
+
+  Timer? _timer;
+  bool _slow = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer(_patience, () => setState(() => _slow = true));
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.xl),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircularProgressIndicator(),
+            if (_slow) ...[
+              const SizedBox(height: AppSpacing.lg),
+              Text(
+                AppLocalizations.of(context).loadingSlow,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: context.colors.textSecondary,
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }

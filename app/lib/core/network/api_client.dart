@@ -19,13 +19,16 @@ class ApiResponse {
 class ApiClient {
   ApiClient(this._dio);
 
-  /// Настройки запросов. Время ожидания ответа выбрано с запасом: сервер на
-  /// бесплатном хостинге засыпает и на первый запрос отвечает небыстро.
+  /// Настройки запросов.
+  ///
+  /// Ответа приложение ждёт дольше минуты: сервер на бесплатном хостинге
+  /// засыпает и на первый запрос после паузы отвечает до минуты. На «нет сети»
+  /// это не влияет — там срабатывает короткое время на соединение.
   static BaseOptions options(String baseUrl) => BaseOptions(
     baseUrl: baseUrl,
     connectTimeout: const Duration(seconds: 15),
     sendTimeout: const Duration(seconds: 15),
-    receiveTimeout: const Duration(seconds: 30),
+    receiveTimeout: const Duration(seconds: 75),
     contentType: Headers.jsonContentType,
     responseType: ResponseType.json,
     headers: {Headers.acceptHeader: Headers.jsonContentType},

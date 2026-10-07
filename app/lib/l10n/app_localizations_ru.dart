@@ -15,6 +15,10 @@ class AppLocalizationsRu extends AppLocalizations {
   String get retry => 'Повторить';
 
   @override
+  String get loadingSlow =>
+      'Сервер отвечает дольше обычного. Если он спал, первый ответ придёт в течение минуты';
+
+  @override
   String get dayToday => 'Сегодня';
 
   @override
@@ -151,6 +155,10 @@ class AppLocalizationsRu extends AppLocalizations {
   String get formAlreadySaved => 'Такая поездка уже записана — дубль не создан';
 
   @override
+  String get formOutcomeUnknown =>
+      'Неизвестно, записалась ли поездка. Проверьте список, прежде чем вводить её заново';
+
+  @override
   String get fieldRequired => 'Заполните поле';
 
   @override
@@ -164,6 +172,10 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get fieldEndAfterStart => 'Окончание должно быть позже начала';
+
+  @override
+  String get fieldTripTooLong =>
+      'Поездка не может длиться дольше суток — проверьте даты';
 
   @override
   String get fieldCommissionNegative => 'Комиссия не может быть меньше нуля';

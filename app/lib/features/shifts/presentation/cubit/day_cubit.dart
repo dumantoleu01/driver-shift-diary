@@ -56,10 +56,12 @@ class DayCubit extends Cubit<DayState> {
 
   /// Добавили поездку — показать её день. Он может быть не тем, что выбран
   /// сейчас: день считается по времени начала поездки.
-  Future<void> showTrip(Trip trip) {
-    final zone = state.zone;
-    return _load(day: zone?.dayOf(trip.start) ?? state.day, quiet: false);
-  }
+  Future<void> showTrip(Trip trip) =>
+      showDay(state.zone?.dayOf(trip.start) ?? state.day);
+
+  /// Открыть день заново, даже если он уже на экране: данные на сервере могли
+  /// измениться.
+  Future<void> showDay(CalendarDay? day) => _load(day: day, quiet: false);
 
   Future<void> _load({required CalendarDay? day, required bool quiet}) async {
     final seq = ++_requestSeq;

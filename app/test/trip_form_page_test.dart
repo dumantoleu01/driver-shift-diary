@@ -258,8 +258,8 @@ void main() {
       },
     );
 
-    testWidgets('форму закрыли после обрыва: главный экран перечитывает день — '
-        'поездка могла записаться', (tester) async {
+    testWidgets('форму закрыли после обрыва: главный экран открывает день '
+        'поездки и просит свериться со списком', (tester) async {
       await openFromDayPage(tester);
       repo.addResults.add(
         Left(NetworkFailure('timeout', cause: ConnectionTimeoutException())),
@@ -274,7 +274,63 @@ void main() {
       await tester.tap(find.byType(BackButton));
       await tester.pumpAndSettle();
 
+      expect(find.text('Новая поездка'), findsNothing);
+      expect(
+        find.textContaining('Неизвестно, записалась ли поездка'),
+        findsOneWidget,
+      );
       expect(find.text('12:00 – 12:20'), findsOneWidget);
+    });
+
+    testWidgets('пока идёт отправка, «Назад» форму не закрывает — иначе ответ '
+        'пришёл бы в никуда', (tester) async {
+      await openFromDayPage(tester);
+      repo.holdAdds = true;
+
+      await tester.enterText(amountField, '2400');
+      await tester.pump();
+      await tester.tap(submit);
+      await tester.pump();
+
+      await tester.tap(find.byType(BackButton));
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expect(find.text('Новая поездка'), findsOneWidget);
+
+      // Ответ пришёл — форма закрывается сама, поездка на экране.
+      repo
+        ..reports[oct1] = reportOf(oct1, [saved])
+        ..replyAdd(Right(AddedTrip(trip: saved, created: true)));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Новая поездка'), findsNothing);
+      expect(find.text('Поездка добавлена'), findsOneWidget);
+      expect(find.text('12:00 – 12:20'), findsOneWidget);
+    });
+
+    testWidgets(
+      'форму закрыли, ничего не отправив: без сообщений и без запросов',
+      (tester) async {
+        await openFromDayPage(tester);
+        final requestsBefore = repo.requestedDays.length;
+
+        await tester.tap(find.byType(BackButton));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Новая поездка'), findsNothing);
+        expect(find.textContaining('Неизвестно'), findsNothing);
+        expect(repo.requestedDays, hasLength(requestsBefore));
+      },
+    );
+
+    testWidgets('календарь формы открывается', (tester) async {
+      await openFromDayPage(tester);
+
+      await tester.tap(find.byKey(const ValueKey('start-day')));
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.byType(DatePickerDialog), findsOneWidget);
     });
   });
 }

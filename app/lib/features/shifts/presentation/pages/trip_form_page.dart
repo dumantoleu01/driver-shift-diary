@@ -13,6 +13,7 @@ import '../../../../core/time/calendar_day.dart';
 import '../../../../core/time/clock_time.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/app_snack.dart';
+import '../../../../core/widgets/day_picker.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../domain/entities/payment_method.dart';
 import '../../domain/rules/trip_rules.dart';
@@ -20,6 +21,7 @@ import '../cubit/trip_form_cubit.dart';
 import '../cubit/trip_form_state.dart';
 import '../widgets/field_error_text.dart';
 import '../widgets/payment_badge.dart';
+import 'trip_form_exit.dart';
 
 /// Форма новой поездки.
 class TripFormPage extends StatelessWidget {
@@ -69,8 +71,20 @@ class _TripFormViewState extends State<TripFormView> {
       // именно эта форма, первой попыткой.
       final isNews = result.created || state.outcomeUnknown;
       showInfoSnack(context, isNews ? l10n.formSaved : l10n.formAlreadySaved);
-      context.pop(result.trip);
+      context.pop<TripFormExit>(TripSaved(result.trip));
     }
+  }
+
+  /// «Назад» — кнопкой, жестом или системной клавишей.
+  void _onBack(BuildContext context) {
+    final state = context.read<TripFormCubit>().state;
+    // Пока идёт отправка, форма не закрывается: ответ пришёл бы уже в никуда, и
+    // главный экран показал бы день без поездки, которая на самом деле
+    // записана.
+    if (state.isSubmitting) return;
+    context.pop<TripFormExit>(
+      state.outcomeUnknown ? TripOutcomeUnknown(state.startDay) : null,
+    );
   }
 
   @override
@@ -86,94 +100,108 @@ class _TripFormViewState extends State<TripFormView> {
           return code == null ? null : fieldErrorText(l10n, code);
         }
 
-        return Scaffold(
-          appBar: AppBar(title: Text(l10n.formTitle)),
-          body: SafeArea(
-            child: Column(
-              children: [
-                Expanded(
-                  child: ListView(
-                    padding: const EdgeInsets.all(AppSpacing.lg),
-                    children: [
-                      _MomentRow(
-                        title: l10n.formStart,
-                        day: state.startDay,
-                        time: state.startTime,
-                        error: errorOf(TripField.start),
-                        enabled: state.canEdit,
-                        onDay: cubit.startDayChanged,
-                        onTime: cubit.startTimeChanged,
-                        keyPrefix: 'start',
-                      ),
-                      const SizedBox(height: AppSpacing.lg),
-                      _MomentRow(
-                        title: l10n.formEnd,
-                        day: state.endDay,
-                        time: state.endTime,
-                        error: errorOf(TripField.end),
-                        enabled: state.canEdit,
-                        onDay: cubit.endDayChanged,
-                        onTime: cubit.endTimeChanged,
-                        keyPrefix: 'end',
-                      ),
-                      const SizedBox(height: AppSpacing.xl),
-                      TextField(
-                        key: const ValueKey('field-amount'),
-                        controller: _amount,
-                        enabled: state.canEdit,
-                        keyboardType: TextInputType.number,
-                        textInputAction: TextInputAction.next,
-                        inputFormatters: [LengthLimitingTextInputFormatter(12)],
-                        onChanged: cubit.amountChanged,
-                        decoration: InputDecoration(
-                          labelText: l10n.formAmount(AppConfig.currencySign),
-                          errorText: errorOf(TripField.amount),
+        // Выход всегда идёт через [_onBack]: только так форма может сообщить
+        // главному экрану, чем она закончилась.
+        return PopScope<TripFormExit>(
+          canPop: false,
+          onPopInvokedWithResult: (didPop, _) {
+            if (!didPop) _onBack(context);
+          },
+          child: Scaffold(
+            appBar: AppBar(title: Text(l10n.formTitle)),
+            body: SafeArea(
+              child: Column(
+                children: [
+                  Expanded(
+                    child: ListView(
+                      padding: const EdgeInsets.all(AppSpacing.lg),
+                      children: [
+                        _MomentRow(
+                          title: l10n.formStart,
+                          day: state.startDay,
+                          time: state.startTime,
+                          error: errorOf(TripField.start),
+                          enabled: state.canEdit,
+                          onDay: cubit.startDayChanged,
+                          onTime: cubit.startTimeChanged,
+                          today: cubit.today,
+                          keyPrefix: 'start',
                         ),
-                      ),
-                      const SizedBox(height: AppSpacing.lg),
-                      _PaymentPicker(
-                        value: state.payment,
-                        enabled: state.canEdit,
-                        error: errorOf(TripField.payment),
-                        onChanged: cubit.paymentChanged,
-                      ),
-                      const SizedBox(height: AppSpacing.lg),
-                      TextField(
-                        key: const ValueKey('field-commission'),
-                        controller: _commission,
-                        enabled: state.canEdit,
-                        keyboardType: TextInputType.number,
-                        textInputAction: TextInputAction.done,
-                        inputFormatters: [LengthLimitingTextInputFormatter(12)],
-                        onChanged: cubit.commissionChanged,
-                        decoration: InputDecoration(
-                          labelText: l10n.formCommission(
-                            AppConfig.currencySign,
+                        const SizedBox(height: AppSpacing.lg),
+                        _MomentRow(
+                          title: l10n.formEnd,
+                          day: state.endDay,
+                          time: state.endTime,
+                          error: errorOf(TripField.end),
+                          enabled: state.canEdit,
+                          onDay: cubit.endDayChanged,
+                          onTime: cubit.endTimeChanged,
+                          today: cubit.today,
+                          keyPrefix: 'end',
+                        ),
+                        const SizedBox(height: AppSpacing.xl),
+                        TextField(
+                          key: const ValueKey('field-amount'),
+                          controller: _amount,
+                          enabled: state.canEdit,
+                          keyboardType: TextInputType.number,
+                          textInputAction: TextInputAction.next,
+                          inputFormatters: [
+                            LengthLimitingTextInputFormatter(12),
+                          ],
+                          onChanged: cubit.amountChanged,
+                          decoration: InputDecoration(
+                            labelText: l10n.formAmount(AppConfig.currencySign),
+                            errorText: errorOf(TripField.amount),
                           ),
-                          errorText: errorOf(TripField.commission),
-                          // Заблокированной форме подсказка «можно изменить»
-                          // ни к чему.
-                          helperText:
-                              state.canEdit &&
-                                  !state.commissionEdited &&
-                                  state.commissionText.isNotEmpty
-                              ? l10n.formCommissionAuto(
-                                  AppConfig.defaultCommissionPercent,
-                                )
-                              : null,
-                          helperMaxLines: 2,
                         ),
-                      ),
-                      const SizedBox(height: AppSpacing.lg),
-                      _NetPreview(state: state),
-                    ],
+                        const SizedBox(height: AppSpacing.lg),
+                        _PaymentPicker(
+                          value: state.payment,
+                          enabled: state.canEdit,
+                          error: errorOf(TripField.payment),
+                          onChanged: cubit.paymentChanged,
+                        ),
+                        const SizedBox(height: AppSpacing.lg),
+                        TextField(
+                          key: const ValueKey('field-commission'),
+                          controller: _commission,
+                          enabled: state.canEdit,
+                          keyboardType: TextInputType.number,
+                          textInputAction: TextInputAction.done,
+                          inputFormatters: [
+                            LengthLimitingTextInputFormatter(12),
+                          ],
+                          onChanged: cubit.commissionChanged,
+                          decoration: InputDecoration(
+                            labelText: l10n.formCommission(
+                              AppConfig.currencySign,
+                            ),
+                            errorText: errorOf(TripField.commission),
+                            // Заблокированной форме подсказка «можно изменить»
+                            // ни к чему.
+                            helperText:
+                                state.canEdit &&
+                                    !state.commissionEdited &&
+                                    state.commissionText.isNotEmpty
+                                ? l10n.formCommissionAuto(
+                                    AppConfig.defaultCommissionPercent,
+                                  )
+                                : null,
+                            helperMaxLines: 2,
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.lg),
+                        _NetPreview(state: state),
+                      ],
+                    ),
                   ),
-                ),
-                // Кнопка и сбой отправки закреплены под списком: после ошибки
-                // форма становится выше, и «Повторить» иначе уезжало бы за
-                // край экрана.
-                _SubmitBar(state: state, onSubmit: cubit.submit),
-              ],
+                  // Кнопка и сбой отправки закреплены под списком: после ошибки
+                  // форма становится выше, и «Повторить» иначе уезжало бы за
+                  // край экрана.
+                  _SubmitBar(state: state, onSubmit: cubit.submit),
+                ],
+              ),
             ),
           ),
         );
@@ -242,6 +270,7 @@ class _MomentRow extends StatelessWidget {
     required this.enabled,
     required this.onDay,
     required this.onTime,
+    required this.today,
     required this.keyPrefix,
   });
 
@@ -252,6 +281,9 @@ class _MomentRow extends StatelessWidget {
   final bool enabled;
   final ValueChanged<CalendarDay> onDay;
   final ValueChanged<ClockTime> onTime;
+
+  /// Сегодняшний день в поясе сервиса — для отметки в календаре.
+  final CalendarDay today;
   final String keyPrefix;
 
   @override
@@ -319,16 +351,8 @@ class _MomentRow extends StatelessWidget {
   }
 
   Future<void> _pickDay(BuildContext context) async {
-    // Календарю нужен DateTime, но берутся из него только год, месяц и число.
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: DateTime(day.year, day.month, day.day),
-      firstDate: DateTime(2020),
-      lastDate: DateTime(day.year + 1, 12, 31),
-    );
-    if (picked != null) {
-      onDay(CalendarDay(picked.year, picked.month, picked.day));
-    }
+    final picked = await pickDay(context, initial: day, today: today);
+    if (picked != null) onDay(picked);
   }
 
   Future<void> _pickTime(BuildContext context) async {

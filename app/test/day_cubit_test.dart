@@ -215,6 +215,16 @@ void main() {
       expect(cubit.state.report?.trips, [trip]);
     });
 
+    test('день можно перечитать, даже если он уже на экране', () async {
+      await cubit.start();
+      repo.reports[oct4] = reportOf(oct4, [t1]);
+
+      await cubit.showDay(oct4);
+
+      expect(cubit.state.day, oct4);
+      expect(cubit.state.report?.trips, [t1]);
+    });
+
     test(
       'оглавление запрашивается заново — в нём изменилось число поездок',
       () async {

@@ -81,6 +81,16 @@ void main() {
       expect(check(to: start.add(const Duration(minutes: 1))), isEmpty);
     });
 
+    test('поездка не дольше суток: опечатку в дате потом нечем исправить', () {
+      expect(check(to: start.add(const Duration(hours: 24))), isEmpty);
+      expect(check(to: start.add(const Duration(hours: 24, minutes: 1))), {
+        TripField.end: FieldCodes.tooLong,
+      });
+      expect(check(to: start.add(const Duration(days: 2, minutes: 20))), {
+        TripField.end: FieldCodes.tooLong,
+      });
+    });
+
     test('комиссия не больше суммы; ноль и вся сумма допустимы', () {
       expect(check(commission: '2401'), {
         TripField.commission: FieldCodes.mustNotExceedAmount,

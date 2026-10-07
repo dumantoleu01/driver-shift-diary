@@ -11,6 +11,7 @@ String fieldErrorText(AppLocalizations l10n, String code) => switch (code) {
   FieldCodes.mustBePositive => l10n.fieldAmountPositive,
   FieldCodes.tooLarge => l10n.fieldAmountTooLarge,
   FieldCodes.mustBeAfterStart => l10n.fieldEndAfterStart,
+  FieldCodes.tooLong => l10n.fieldTripTooLong,
   FieldCodes.mustNotBeNegative => l10n.fieldCommissionNegative,
   FieldCodes.mustNotExceedAmount => l10n.fieldCommissionExceeds,
   FieldCodes.outOfRange => l10n.fieldOutOfRange,
