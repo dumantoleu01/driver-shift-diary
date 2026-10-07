@@ -3,7 +3,11 @@ name = "shift-diary-server"
 version = "0.1.0"
 description = "API дневника смен водителя"
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "fastapi>=0.142.2",
+    "pydantic>=2.13.5",
+    "uvicorn>=0.54.0",
+]
 
 [tool.uv]
 # Это приложение, а не библиотека: собирать и устанавливать его как пакет незачем.
@@ -29,6 +33,7 @@ python_version = "3.13"
 
 [dependency-groups]
 dev = [
+    "httpx2>=2.13.1",
     "mypy>=2.4.0",
     "pytest>=9.1.1",
     "ruff>=0.16.10",
