@@ -1,0 +1,11 @@
+# В образ сервера идут только server/ и data/.
+.git
+.github
+app
+**/.venv
+**/__pycache__
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+server/var
+server/tests

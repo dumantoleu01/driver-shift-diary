@@ -1,0 +1,15 @@
+# Сервер одной командой, без установки Python:  docker compose up --build
+# API: http://localhost:8000/api/days, проба запросов: http://localhost:8000/docs
+services:
+  server:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      # База переживает пересоздание контейнера. Начать с чистого образца: docker compose down -v
+      - trips:/var/lib/shift-diary
+
+volumes:
+  trips:

@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Новый пуш в ту же ветку отменяет ещё не законченную проверку предыдущего.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  server:
+    name: Сервер — линтер, типы, тесты
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10
+        with:
+          version: "0.12.0"
+          enable-cache: true
+      - name: Зависимости строго по uv.lock
+        run: uv sync --frozen
+      - name: Линтер
+        run: uv run ruff check .
+      - name: Форматирование
+        run: uv run ruff format --check .
+      - name: Типы
+        run: uv run mypy shift_diary tests
+      - name: Тесты
+        run: uv run pytest -q
+
+  server-image:
+    name: Сервер — образ собирается и отвечает
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Сборка образа
+        run: docker build -f server/Dockerfile -t shift-diary-server .
+      - name: Запуск и проба API
+        run: |
+          docker run -d --name server -p 8000:8000 shift-diary-server
+          curl --fail --silent --retry 20 --retry-delay 1 --retry-all-errors http://localhost:8000/health
+          # Образец загружен: в ответе должны быть пять дней с поездками.
+          test "$(curl --fail --silent http://localhost:8000/api/days | jq '.days | length')" = 5
+      - name: Журнал сервера
+        if: always()
+        run: docker logs server
