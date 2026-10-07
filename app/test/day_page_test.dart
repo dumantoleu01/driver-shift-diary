@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shift_diary/core/error/errors.dart';
 import 'package:shift_diary/core/time/calendar_day.dart';
 import 'package:shift_diary/core/utils/formatters.dart';
+import 'package:shift_diary/features/drivers/presentation/cubit/drivers_cubit.dart';
 import 'package:shift_diary/features/shifts/domain/entities/payment_method.dart';
 import 'package:shift_diary/features/shifts/domain/entities/trip.dart';
 import 'package:shift_diary/features/shifts/domain/usecases/get_day_report.dart';
@@ -13,6 +14,7 @@ import 'package:shift_diary/features/shifts/domain/usecases/get_diary_index.dart
 import 'package:shift_diary/features/shifts/presentation/cubit/day_cubit.dart';
 import 'package:shift_diary/features/shifts/presentation/pages/day_page.dart';
 
+import 'helpers/fake_drivers_repository.dart';
 import 'helpers/fake_shifts_repository.dart';
 import 'helpers/fixtures.dart';
 import 'helpers/pump_app.dart';
@@ -20,24 +22,35 @@ import 'helpers/pump_app.dart';
 void main() {
   late FakeShiftsRepository repo;
   late DayCubit cubit;
+  late FakeDriversRepository driversRepo;
+  late DriversCubit drivers;
 
   setUpAll(loadDateSymbols);
 
-  setUp(() {
+  setUp(() async {
     repo = FakeShiftsRepository()..index = indexOf([sep30, oct1]);
     cubit = DayCubit(GetDiaryIndex(repo), GetDayReport(repo));
+    driversRepo = FakeDriversRepository();
+    drivers = await loadedDriversCubit(driversRepo);
   });
 
-  tearDown(() => cubit.close());
+  tearDown(() async {
+    await cubit.close();
+    await drivers.close();
+  });
+
+  /// Экран дня с обоими кубитами — как в приложении.
+  Widget page() => MultiBlocProvider(
+    providers: [
+      BlocProvider.value(value: drivers),
+      BlocProvider.value(value: cubit),
+    ],
+    child: testApp(home: const DayPage()),
+  );
 
   Future<void> open(WidgetTester tester) async {
     usePhoneScreen(tester);
-    await tester.pumpWidget(
-      BlocProvider.value(
-        value: cubit,
-        child: testApp(home: const DayPage()),
-      ),
-    );
+    await tester.pumpWidget(page());
     await cubit.start();
     await tester.pumpAndSettle();
   }
@@ -155,12 +168,7 @@ void main() {
   testWidgets('долгая загрузка объясняет, почему долго', (tester) async {
     usePhoneScreen(tester);
     repo.holdReports = true;
-    await tester.pumpWidget(
-      BlocProvider.value(
-        value: cubit,
-        child: testApp(home: const DayPage()),
-      ),
-    );
+    await tester.pumpWidget(page());
     unawaited(cubit.start());
     await tester.pump(const Duration(seconds: 1));
 
@@ -219,5 +227,85 @@ void main() {
 
     expect(find.text('08:10 – 08:32'), findsOneWidget);
     expect(find.textContaining('Нет связи с сервером'), findsOneWidget);
+  });
+
+  group('водители', () {
+    testWidgets('в шапке видно, чей дневник открыт', (tester) async {
+      await open(tester);
+
+      expect(find.text('Водитель 1'), findsOneWidget);
+    });
+
+    testWidgets('новый водитель: экран перечитывает дневник и открывает его '
+        'последний день', (tester) async {
+      repo.reports[oct1] = reportOf(oct1, [t1]);
+      await open(tester);
+      expect(find.text('08:10 – 08:32'), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('driver-button')));
+      await tester.pumpAndSettle();
+      // У нового водителя на сервере другой дневник.
+      repo
+        ..index = indexOf([sep30])
+        ..reports[sep30] = reportOf(sep30, [t2]);
+      await tester.tap(find.byKey(const ValueKey('driver-new')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Водитель 2'), findsOneWidget);
+      expect(textOf(tester, 'day-title'), 'Среда, 30 сентября');
+      expect(find.text('08:10 – 08:32'), findsNothing);
+      expect(cubit.state.report?.trips, [t2]);
+    });
+
+    testWidgets('переключение между водителями', (tester) async {
+      await drivers.create();
+      await open(tester);
+      expect(find.text('Водитель 2'), findsOneWidget);
+      final requestsBefore = repo.indexRequests;
+
+      await tester.tap(find.byKey(const ValueKey('driver-button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('driver-1')));
+      await tester.pumpAndSettle();
+
+      expect(drivers.state.current?.id, 'driver-1');
+      expect(find.text('Водитель 1'), findsOneWidget);
+      expect(repo.indexRequests, greaterThan(requestsBefore));
+    });
+
+    testWidgets('выбор того же водителя ничего не перечитывает', (
+      tester,
+    ) async {
+      await open(tester);
+      final requestsBefore = repo.indexRequests;
+
+      await tester.tap(find.byKey(const ValueKey('driver-button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('driver-1')));
+      await tester.pumpAndSettle();
+
+      expect(repo.indexRequests, requestsBefore);
+    });
+
+    testWidgets(
+      'если водителя не удалось сохранить, дневник остаётся прежним',
+      (tester) async {
+        repo.reports[oct1] = reportOf(oct1, [t1]);
+        await open(tester);
+        driversRepo.failure = const StorageFailure('нет места');
+
+        await tester.tap(find.byKey(const ValueKey('driver-button')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('driver-new')));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Водитель 1'), findsOneWidget);
+        expect(find.text('08:10 – 08:32'), findsOneWidget);
+        expect(
+          find.textContaining('Не удалось сохранить на телефоне'),
+          findsOneWidget,
+        );
+      },
+    );
   });
 }

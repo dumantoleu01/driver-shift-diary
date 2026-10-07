@@ -5,6 +5,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'core/di/injection.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
+import 'features/drivers/presentation/cubit/drivers_cubit.dart';
 import 'features/shifts/presentation/cubit/day_cubit.dart';
 import 'l10n/app_localizations.dart';
 
@@ -15,8 +16,12 @@ class ShiftDiaryApp extends StatelessWidget {
   Widget build(BuildContext context) {
     // Кубит дня живёт над навигацией: форма поездки открывается поверх главного
     // экрана, а после неё тот же кубит показывает день добавленной поездки.
-    return BlocProvider(
-      create: (_) => getIt<DayCubit>()..start(),
+    return MultiBlocProvider(
+      providers: [
+        // Уже прочитан в main() и живёт всё время работы — поэтому value.
+        BlocProvider.value(value: getIt<DriversCubit>()),
+        BlocProvider(create: (_) => getIt<DayCubit>()..start()),
+      ],
       child: MaterialApp.router(
         onGenerateTitle: (context) => AppLocalizations.of(context).appTitle,
         debugShowCheckedModeBanner: false,

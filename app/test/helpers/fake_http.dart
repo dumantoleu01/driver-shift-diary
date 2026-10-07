@@ -16,10 +16,13 @@ class FakeHttp implements HttpClientAdapter {
   /// Запросы, которые ушли «в сеть», по порядку.
   final List<RequestOptions> requests = [];
 
-  ApiClient get client {
+  ApiClient get client => clientAs(null);
+
+  /// Клиент, подписывающий запросы водителем [driverId].
+  ApiClient clientAs(String? Function()? driverId) {
     final dio = Dio(ApiClient.options('http://server.test'))
       ..httpClientAdapter = this;
-    return ApiClient(dio);
+    return ApiClient(dio, driverId: driverId);
   }
 
   @override

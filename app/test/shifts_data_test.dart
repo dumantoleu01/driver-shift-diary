@@ -82,6 +82,54 @@ void main() {
     });
   });
 
+  group('водитель', () {
+    Future<ResponseBody> emptyIndex(RequestOptions _) =>
+        jsonReply(200, {'utc_offset': '+05:00', 'days': <Object>[]});
+
+    test('каждый запрос подписан текущим водителем', () async {
+      final http = FakeHttp((_) => jsonReply(201, t1Json()));
+      final repository = ShiftsRepositoryImpl(
+        remoteDataSource: ShiftsRemoteDataSourceImpl(
+          http.clientAs(() => 'driver-7'),
+        ),
+      );
+
+      await repository.addTrip(draft);
+
+      expect(http.requests.single.headers['X-Driver-Id'], 'driver-7');
+    });
+
+    test(
+      'водителя можно сменить на ходу — следующий запрос уйдёт от нового',
+      () async {
+        var driver = 'driver-1';
+        final http = FakeHttp(emptyIndex);
+        final repository = ShiftsRepositoryImpl(
+          remoteDataSource: ShiftsRemoteDataSourceImpl(
+            http.clientAs(() => driver),
+          ),
+        );
+
+        await repository.getIndex();
+        driver = 'driver-2';
+        await repository.getIndex();
+
+        expect(http.requests.map((request) => request.headers['X-Driver-Id']), [
+          'driver-1',
+          'driver-2',
+        ]);
+      },
+    );
+
+    test('пока водитель не выбран, заголовка нет вовсе', () async {
+      final http = FakeHttp(emptyIndex);
+
+      await repositoryOver(http).getIndex();
+
+      expect(http.requests.single.headers.containsKey('X-Driver-Id'), isFalse);
+    });
+  });
+
   group('добавление поездки', () {
     test('201 — поездка создана; в запросе id и время в UTC', () async {
       final http = FakeHttp((_) => jsonReply(201, t1Json()));

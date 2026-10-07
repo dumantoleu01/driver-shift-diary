@@ -53,6 +53,16 @@ class ConnectionTimeoutException extends NetworkException {
   ConnectionTimeoutException([super.message = 'Connection timeout']);
 }
 
+/// Не удалось записать данные в хранилище телефона.
+class StorageException implements Exception {
+  StorageException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => 'StorageException: $message';
+}
+
 /// Сервер не принял поездку: по каждому негодному полю — код причины.
 class TripRejectedException implements Exception {
   TripRejectedException(this.fields);

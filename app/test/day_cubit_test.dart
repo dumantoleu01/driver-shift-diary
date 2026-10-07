@@ -155,6 +155,44 @@ void main() {
     );
   });
 
+  group('DayCubit — смена водителя', () {
+    test(
+      'экран начинает заново: у нового водителя свой последний день',
+      () async {
+        await cubit.start();
+        await cubit.selectDay(sep29);
+        // Дневник другого водителя: поездки только 1 октября.
+        repo
+          ..index = indexOf([oct1])
+          ..reports[oct1] = reportOf(oct1, [t1]);
+
+        await cubit.restart();
+
+        expect(cubit.state.day, oct1);
+        expect(cubit.state.report?.trips, [t1]);
+      },
+    );
+
+    test('ответ, запрошенный для прежнего водителя, отбрасывается', () async {
+      await cubit.start();
+      repo.holdReports = true;
+      unawaited(cubit.selectDay(sep29));
+      await pumpEventQueue();
+
+      // Водителя сменили, пока день прежнего ещё грузился.
+      repo.index = indexOf([oct1]);
+      unawaited(cubit.restart());
+      await pumpEventQueue();
+      repo.replyReport(oct1, reportOf(oct1, [t1]));
+      await pumpEventQueue();
+      repo.replyReport(sep29, reportOf(sep29, [t2]));
+      await pumpEventQueue();
+
+      expect(cubit.state.day, oct1);
+      expect(cubit.state.report?.trips, [t1]);
+    });
+  });
+
   group('DayCubit — обновление', () {
     test('обновление подхватывает новые поездки', () async {
       await cubit.start();

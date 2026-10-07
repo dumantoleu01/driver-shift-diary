@@ -33,6 +33,14 @@ class DayCubit extends Cubit<DayState> {
   /// Открыли приложение или нажали «Повторить» на ошибке загрузки.
   Future<void> start() => _load(day: state.day, quiet: false);
 
+  /// Сменился водитель: ни выбранный день, ни поездки прежнего водителя к
+  /// новому не относятся. Экран очищается и открывается заново — на последнем
+  /// дне с поездками уже нового водителя.
+  Future<void> restart() {
+    emit(const DayState());
+    return _load(day: null, quiet: false);
+  }
+
   /// Потянули экран вниз. Прежние данные остаются на месте; если обновить не
   /// удалось, об этом скажет сообщение поверх них.
   Future<void> refresh() => _load(day: state.day, quiet: true);

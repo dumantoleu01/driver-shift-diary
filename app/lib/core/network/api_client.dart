@@ -17,7 +17,10 @@ class ApiResponse {
 /// Наружу выходят только типизированные исключения из `exceptions.dart`:
 /// выше этого слоя никто не знает про Dio и не разбирает текст ошибки.
 class ApiClient {
-  ApiClient(this._dio);
+  ApiClient(this._dio, {String? Function()? driverId}) : _driverId = driverId;
+
+  /// Заголовок, по которому сервер выбирает дневник.
+  static const driverHeader = 'X-Driver-Id';
 
   /// Настройки запросов.
   ///
@@ -35,11 +38,20 @@ class ApiClient {
   );
 
   final Dio _dio;
+  final String? Function()? _driverId;
 
-  Future<ApiResponse> get(String path) => _send(() => _dio.get<Object?>(path));
+  Future<ApiResponse> get(String path) =>
+      _send(() => _dio.get<Object?>(path, options: _signed()));
 
   Future<ApiResponse> post(String path, Map<String, Object?> body) =>
-      _send(() => _dio.post<Object?>(path, data: body));
+      _send(() => _dio.post<Object?>(path, data: body, options: _signed()));
+
+  /// Запрос от имени текущего водителя. Водитель читается в момент отправки, а
+  /// не при создании клиента: его можно сменить во время работы.
+  Options _signed() {
+    final driver = _driverId?.call();
+    return Options(headers: {driverHeader: ?driver});
+  }
 
   Future<ApiResponse> _send(
     Future<Response<Object?>> Function() request,

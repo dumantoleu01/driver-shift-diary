@@ -24,6 +24,11 @@ class NetworkFailure extends Failure {
   const NetworkFailure(super.message, {super.cause});
 }
 
+/// Не удалось прочитать или записать данные на самом телефоне.
+class StorageFailure extends Failure {
+  const StorageFailure(super.message, {super.cause});
+}
+
 /// Сервер не принял поездку. [fields] — код причины по каждому полю; экран
 /// показывает их под полями формы, а не общим сообщением.
 class TripRejectedFailure extends Failure {

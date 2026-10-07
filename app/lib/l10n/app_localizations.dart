@@ -142,6 +142,42 @@ abstract class AppLocalizations {
   /// **'Выбрать день'**
   String get dayPick;
 
+  /// No description provided for @driverName.
+  ///
+  /// In ru, this message translates to:
+  /// **'Водитель {number}'**
+  String driverName(int number);
+
+  /// No description provided for @driversTitle.
+  ///
+  /// In ru, this message translates to:
+  /// **'Водители'**
+  String get driversTitle;
+
+  /// No description provided for @driversHint.
+  ///
+  /// In ru, this message translates to:
+  /// **'У каждого водителя свой дневник. Пароля нет: водители разделены, но не защищены'**
+  String get driversHint;
+
+  /// No description provided for @driverSwitch.
+  ///
+  /// In ru, this message translates to:
+  /// **'Сменить водителя'**
+  String get driverSwitch;
+
+  /// No description provided for @driverNew.
+  ///
+  /// In ru, this message translates to:
+  /// **'Новый водитель'**
+  String get driverNew;
+
+  /// No description provided for @driverNewHint.
+  ///
+  /// In ru, this message translates to:
+  /// **'Его дневник начнётся с образца поездок'**
+  String get driverNewHint;
+
   /// No description provided for @summaryNet.
   ///
   /// In ru, this message translates to:
@@ -465,6 +501,18 @@ abstract class AppLocalizations {
   /// In ru, this message translates to:
   /// **'Закройте форму и добавьте поездку заново'**
   String get errTripConflictHint;
+
+  /// No description provided for @errStorageTitle.
+  ///
+  /// In ru, this message translates to:
+  /// **'Не удалось сохранить на телефоне'**
+  String get errStorageTitle;
+
+  /// No description provided for @errStorageHint.
+  ///
+  /// In ru, this message translates to:
+  /// **'Освободите место на телефоне и попробуйте ещё раз'**
+  String get errStorageHint;
 
   /// No description provided for @errUnknownTitle.
   ///

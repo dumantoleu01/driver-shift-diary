@@ -13,6 +13,9 @@ import '../../../../core/widgets/app_error_view.dart';
 import '../../../../core/widgets/app_snack.dart';
 import '../../../../core/widgets/day_picker.dart';
 import '../../../../l10n/app_localizations.dart';
+import '../../../drivers/presentation/cubit/drivers_cubit.dart';
+import '../../../drivers/presentation/cubit/drivers_state.dart';
+import '../../../drivers/presentation/widgets/driver_button.dart';
 import '../../domain/entities/day_report.dart';
 import '../cubit/day_cubit.dart';
 import '../cubit/day_state.dart';
@@ -29,42 +32,58 @@ class DayPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
 
-    return BlocConsumer<DayCubit, DayState>(
-      listenWhen: (before, after) => before.noticeSeq != after.noticeSeq,
-      listener: (context, state) => showErrorSnack(context, state.noticeCode),
-      builder: (context, state) {
-        final cubit = context.read<DayCubit>();
-        final zone = state.zone;
-        final day = state.day;
-        final ready = zone != null && day != null;
-
-        return Scaffold(
-          appBar: AppBar(title: Text(l10n.appTitle)),
-          body: SafeArea(
-            child: Column(
-              children: [
-                if (ready)
-                  DaySwitcher(
-                    day: day,
-                    today: zone.dayOf(DateTime.now()),
-                    onPrevious: cubit.previousDay,
-                    onNext: cubit.nextDay,
-                    onPick: () => _pickDay(context, zone, day),
-                  ),
-                Expanded(child: _body(context, state)),
-              ],
-            ),
-          ),
-          floatingActionButton: ready
-              ? FloatingActionButton.extended(
-                  key: const ValueKey('trip-add'),
-                  onPressed: () => _addTrip(context, zone, day),
-                  icon: const Icon(Icons.add),
-                  label: Text(l10n.tripAdd),
-                )
-              : null,
-        );
+    return BlocListener<DriversCubit, DriversState>(
+      listenWhen: (before, after) =>
+          before.current?.id != after.current?.id ||
+          before.errorSeq != after.errorSeq,
+      listener: (context, drivers) {
+        if (drivers.errorCode != null) {
+          showErrorSnack(context, drivers.errorCode);
+        } else {
+          // Другой водитель — другой дневник.
+          context.read<DayCubit>().restart();
+        }
       },
+      child: BlocConsumer<DayCubit, DayState>(
+        listenWhen: (before, after) => before.noticeSeq != after.noticeSeq,
+        listener: (context, state) => showErrorSnack(context, state.noticeCode),
+        builder: (context, state) {
+          final cubit = context.read<DayCubit>();
+          final zone = state.zone;
+          final day = state.day;
+          final ready = zone != null && day != null;
+
+          return Scaffold(
+            appBar: AppBar(
+              title: Text(l10n.appTitle),
+              actions: const [DriverButton()],
+            ),
+            body: SafeArea(
+              child: Column(
+                children: [
+                  if (ready)
+                    DaySwitcher(
+                      day: day,
+                      today: zone.dayOf(DateTime.now()),
+                      onPrevious: cubit.previousDay,
+                      onNext: cubit.nextDay,
+                      onPick: () => _pickDay(context, zone, day),
+                    ),
+                  Expanded(child: _body(context, state)),
+                ],
+              ),
+            ),
+            floatingActionButton: ready
+                ? FloatingActionButton.extended(
+                    key: const ValueKey('trip-add'),
+                    onPressed: () => _addTrip(context, zone, day),
+                    icon: const Icon(Icons.add),
+                    label: Text(l10n.tripAdd),
+                  )
+                : null,
+          );
+        },
+      ),
     );
   }
 

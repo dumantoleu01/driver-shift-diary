@@ -16,6 +16,7 @@ import 'package:shift_diary/features/shifts/presentation/cubit/day_cubit.dart';
 import 'package:shift_diary/features/shifts/presentation/cubit/trip_form_cubit.dart';
 import 'package:shift_diary/features/shifts/presentation/pages/trip_form_page.dart';
 
+import 'helpers/fake_drivers_repository.dart';
 import 'helpers/fake_shifts_repository.dart';
 import 'helpers/fixtures.dart';
 import 'helpers/pump_app.dart';
@@ -165,9 +166,14 @@ void main() {
 
       final dayCubit = DayCubit(GetDiaryIndex(repo), GetDayReport(repo));
       addTearDown(dayCubit.close);
+      final drivers = await loadedDriversCubit(FakeDriversRepository());
+      addTearDown(drivers.close);
       await tester.pumpWidget(
-        BlocProvider.value(
-          value: dayCubit,
+        MultiBlocProvider(
+          providers: [
+            BlocProvider.value(value: drivers),
+            BlocProvider.value(value: dayCubit),
+          ],
           child: testApp(router: AppRouter.create()),
         ),
       );

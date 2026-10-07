@@ -14,6 +14,7 @@ abstract final class ErrorCodes {
   static const badResponse = 'SRV-02';
   static const tripRejected = 'TRIP-01';
   static const tripIdConflict = 'TRIP-02';
+  static const storage = 'DEV-01';
   static const unknown = 'APP-01';
 }
 
@@ -25,6 +26,7 @@ String classifyError(Object? error) => switch (error) {
   TripRejectedFailure() || TripRejectedException() => ErrorCodes.tripRejected,
   TripIdConflictFailure() ||
   TripIdConflictException() => ErrorCodes.tripIdConflict,
+  StorageFailure() || StorageException() => ErrorCodes.storage,
   NetworkFailure() => ErrorCodes.noInternet,
   ServerFailure() => ErrorCodes.serverUnavailable,
   ConnectionTimeoutException() => ErrorCodes.timeout,
@@ -68,6 +70,10 @@ UserFacingError describeError(AppLocalizations l10n, String? code) =>
       ErrorCodes.tripIdConflict => UserFacingError(
         title: l10n.errTripConflictTitle,
         hint: l10n.errTripConflictHint,
+      ),
+      ErrorCodes.storage => UserFacingError(
+        title: l10n.errStorageTitle,
+        hint: l10n.errStorageHint,
       ),
       _ => UserFacingError(
         title: l10n.errUnknownTitle,

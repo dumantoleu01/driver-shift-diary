@@ -34,6 +34,27 @@ class AppLocalizationsRu extends AppLocalizations {
   String get dayPick => 'Выбрать день';
 
   @override
+  String driverName(int number) {
+    return 'Водитель $number';
+  }
+
+  @override
+  String get driversTitle => 'Водители';
+
+  @override
+  String get driversHint =>
+      'У каждого водителя свой дневник. Пароля нет: водители разделены, но не защищены';
+
+  @override
+  String get driverSwitch => 'Сменить водителя';
+
+  @override
+  String get driverNew => 'Новый водитель';
+
+  @override
+  String get driverNewHint => 'Его дневник начнётся с образца поездок';
+
+  @override
   String get summaryNet => 'На руки';
 
   @override
@@ -224,6 +245,13 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get errTripConflictHint => 'Закройте форму и добавьте поездку заново';
+
+  @override
+  String get errStorageTitle => 'Не удалось сохранить на телефоне';
+
+  @override
+  String get errStorageHint =>
+      'Освободите место на телефоне и попробуйте ещё раз';
 
   @override
   String get errUnknownTitle => 'Что-то пошло не так';

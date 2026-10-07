@@ -11,6 +11,16 @@
   "dayNext": "Следующий день",
   "dayPick": "Выбрать день",
 
+  "driverName": "Водитель {number}",
+  "@driverName": {
+    "placeholders": {"number": {"type": "int"}}
+  },
+  "driversTitle": "Водители",
+  "driversHint": "У каждого водителя свой дневник. Пароля нет: водители разделены, но не защищены",
+  "driverSwitch": "Сменить водителя",
+  "driverNew": "Новый водитель",
+  "driverNewHint": "Его дневник начнётся с образца поездок",
+
   "summaryNet": "На руки",
   "summaryTrips": "Поездок",
   "summaryRevenue": "Выручка",
@@ -96,6 +106,8 @@
   "errTripRejectedHint": "Проверьте данные и попробуйте ещё раз",
   "errTripConflictTitle": "Не удалось сохранить поездку",
   "errTripConflictHint": "Закройте форму и добавьте поездку заново",
+  "errStorageTitle": "Не удалось сохранить на телефоне",
+  "errStorageHint": "Освободите место на телефоне и попробуйте ещё раз",
   "errUnknownTitle": "Что-то пошло не так",
   "errUnknownHint": "Попробуйте ещё раз"
 }
