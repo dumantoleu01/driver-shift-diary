@@ -162,8 +162,8 @@ def test_summary_always_matches_the_list(sample: TestClient) -> None:
         "20261001",
         "01.10.2026",
         "today",
-        "1999-12-31",
-        "2100-01-01",
+        "1999-12-30",
+        "2100-01-02",
     ],
 )
 def test_bad_date_is_400(client: TestClient, date: str) -> None:
@@ -171,6 +171,38 @@ def test_bad_date_is_400(client: TestClient, date: str) -> None:
 
     assert response.status_code == 400
     assert response.json()["error"]["code"] == "invalid_date"
+
+
+@pytest.mark.parametrize(
+    ("offset", "start", "day"),
+    [
+        ("+05:00", "2099-12-31T23:00:00Z", "2100-01-01"),
+        ("-05:00", "2000-01-01T00:00:00Z", "1999-12-31"),
+    ],
+)
+def test_day_of_any_accepted_trip_can_be_opened(
+    tmp_path: Path, offset: str, start: str, day: str
+) -> None:
+    """Поездка на краю допустимых дат попадает в соседний день — он тоже должен открываться."""
+    client = TestClient(
+        create_app(Settings(db_path=tmp_path / "t.sqlite3", seed_path=None, utc_offset=offset))
+    )
+    end = start.replace(":00:00Z", ":20:00Z")
+    assert client.post("/api/trips", json=trip(start=start, end=end)).status_code == 201
+
+    [listed] = client.get("/api/days").json()["days"]
+    opened = client.get(f"/api/days/{listed['date']}")
+
+    assert listed["date"] == day
+    assert opened.status_code == 200
+    assert opened.json()["summary"]["trips"] == 1
+
+
+def test_out_of_range_date_says_so(client: TestClient) -> None:
+    """Верно записанная дата вне диапазона — не «неверный формат»."""
+    message = client.get("/api/days/2100-01-02").json()["error"]["message"]
+
+    assert "от 1999-12-31 до 2100-01-01" in message
 
 
 # --- список дней ----------------------------------------------------------------------------
@@ -363,6 +395,7 @@ def test_simultaneous_repeats_create_one_trip(app: FastAPI) -> None:
         (trip(start="1759300000"), "start", "invalid_datetime"),
         (trip(start="0001-01-01T00:00:00+05:00"), "start", "out_of_range"),
         (trip(end="9999-12-31T23:59:59-12:00"), "end", "out_of_range"),
+        (trip(end="2026-10-03T08:10:00+05:00"), "end", "too_long"),
         (without("start"), "start", "required"),
         (without("end"), "end", "required"),
         # Оплата — только cash или card.

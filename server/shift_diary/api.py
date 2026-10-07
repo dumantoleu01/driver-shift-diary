@@ -5,6 +5,7 @@
 его одним способом, а текст под полем формы выбирает по коду.
 """
 
+import contextlib
 import datetime as dt
 import logging
 import re
@@ -111,19 +112,27 @@ def _invalid_trip(fields: Mapping[str, str]) -> ApiError:
     )
 
 
+# Поездка проверяется по моменту времени, а день считается в поясе сервиса: поездка на самом
+# краю допустимого диапазона может относиться к соседней дате. Поэтому дней на сутки больше с
+# каждой стороны — иначе поездку можно было бы записать, а её день открыть нельзя.
+_FIRST_DAY = EARLIEST.date() - dt.timedelta(days=1)
+_LAST_DAY = LATEST.date()
+
+
 def _parse_day(text: str) -> dt.date:
     """Дата из адреса. Только `ГГГГ-ММ-ДД`: `fromisoformat` сам по себе принял бы и `20261001`."""
+    day = None
     if _DAY.fullmatch(text):
-        try:
+        # Запись вида 2026-02-30 проходит по шаблону, но такой даты нет.
+        with contextlib.suppress(ValueError):
             day = dt.date.fromisoformat(text)
-        except ValueError:
-            pass
-        else:
-            if EARLIEST.date() <= day < LATEST.date():
-                return day
-    raise ApiError(
-        400, "invalid_date", "Дата должна быть в формате ГГГГ-ММ-ДД, например 2026-10-01"
-    )
+    if day is None:
+        raise ApiError(
+            400, "invalid_date", "Дата должна быть в формате ГГГГ-ММ-ДД, например 2026-10-01"
+        )
+    if not _FIRST_DAY <= day <= _LAST_DAY:
+        raise ApiError(400, "invalid_date", f"Дата должна быть от {_FIRST_DAY} до {_LAST_DAY}")
+    return day
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:

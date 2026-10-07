@@ -28,7 +28,8 @@ def load_seed(path: Path, store: TripStore) -> SeedReport:
     сервер с пустой базой вместо данных выглядел бы исправным, не будучи им.
     """
     try:
-        records = json.loads(path.read_text(encoding="utf-8"))
+        # utf-8-sig: файл, сохранённый редактором с меткой BOM, — тоже годный JSON.
+        records = json.loads(path.read_text(encoding="utf-8-sig"))
     except (OSError, ValueError) as error:
         raise ValueError(f"не удалось прочитать образец {path}: {error}") from error
     if not isinstance(records, list):

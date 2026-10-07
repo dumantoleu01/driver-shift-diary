@@ -92,6 +92,14 @@ def test_same_id_with_other_content_is_reported(tmp_path: Path, store: TripStore
     assert "занят" in report.rejected[0]
 
 
+def test_file_with_bom_is_still_valid(tmp_path: Path, store: TripStore) -> None:
+    """Редактор мог сохранить файл с меткой BOM — от этого он не перестал быть JSON."""
+    path = tmp_path / "seed.json"
+    path.write_text(json.dumps([T1]), encoding="utf-8-sig")
+
+    assert load_seed(path, store).created == 1
+
+
 @pytest.mark.parametrize("content", ['{"id": "t1"}', "не json", ""])
 def test_unreadable_file_stops_startup(tmp_path: Path, store: TripStore, content: str) -> None:
     """Сервер с пустой базой вместо данных выглядел бы исправным — лучше не запускаться."""

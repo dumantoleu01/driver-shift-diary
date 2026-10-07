@@ -4,7 +4,7 @@
 формы. Переименовать код значит сломать клиента.
 """
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 
 
@@ -21,6 +21,7 @@ class Violation(StrEnum):
     # Смысл данных — эти коды ставит `violations`.
     OUT_OF_RANGE = "out_of_range"
     MUST_BE_AFTER_START = "must_be_after_start"
+    TOO_LONG = "too_long"
     MUST_BE_POSITIVE = "must_be_positive"
     TOO_LARGE = "too_large"
     MUST_NOT_BE_NEGATIVE = "must_not_be_negative"
@@ -34,6 +35,10 @@ EARLIEST = datetime(2000, 1, 1, tzinfo=UTC)
 LATEST = datetime(2100, 1, 1, tzinfo=UTC)
 MAX_AMOUNT = 100_000_000
 
+# Поездку нельзя ни исправить, ни удалить, поэтому явную опечатку в дате лучше не принять вовсе:
+# «окончание через двое суток» — это ошибка ввода, а не поездка.
+MAX_DURATION = timedelta(hours=24)
+
 
 def violations(
     *, start: datetime, end: datetime, amount: int, commission: int
@@ -44,12 +49,17 @@ def violations(
     """
     found: dict[str, Violation] = {}
 
-    if not EARLIEST <= start < LATEST:
+    start_in_range = EARLIEST <= start < LATEST
+    if not start_in_range:
         found["start"] = Violation.OUT_OF_RANGE
     if not EARLIEST <= end < LATEST:
         found["end"] = Violation.OUT_OF_RANGE
-    elif end <= start:
-        found["end"] = Violation.MUST_BE_AFTER_START
+    elif start_in_range:
+        # С негодным началом сравнивать окончание не с чем.
+        if end <= start:
+            found["end"] = Violation.MUST_BE_AFTER_START
+        elif end - start > MAX_DURATION:
+            found["end"] = Violation.TOO_LONG
 
     if amount <= 0:
         found["amount"] = Violation.MUST_BE_POSITIVE

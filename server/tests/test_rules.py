@@ -55,6 +55,13 @@ def test_trip_over_midnight_is_fine() -> None:
     assert check(start=at("2026-09-30T23:48:00+05:00"), end=at("2026-10-01T00:14:00+05:00")) == {}
 
 
+def test_trip_cannot_last_longer_than_a_day() -> None:
+    """Двое суток между началом и концом — опечатка в дате, а исправить запись потом нечем."""
+    assert check(end=START + timedelta(hours=24)) == {}
+    assert check(end=START + timedelta(hours=24, seconds=1)) == {"end": Violation.TOO_LONG}
+    assert check(end=START + timedelta(days=2, minutes=20)) == {"end": Violation.TOO_LONG}
+
+
 def test_commission_cannot_be_negative() -> None:
     assert check(commission=-1) == {"commission": Violation.MUST_NOT_BE_NEGATIVE}
 
