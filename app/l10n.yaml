@@ -5,3 +5,5 @@ output-localization-file: app_localizations.dart
 output-class: AppLocalizations
 # of(context) возвращает non-null — в виджетах не нужен «!».
 nullable-getter: false
+# Сгенерированный код сразу в том виде, в каком его оставил бы dart format.
+format: true

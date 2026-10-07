@@ -1,0 +1,41 @@
+name: Release
+
+# Тег вида v1.0.0 собирает APK с адресом боевого сервера и прикладывает его к релизу.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    name: APK в релиз
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v7
+      - name: Адрес сервера задан
+        # Без адреса APK собрался бы, но ходил бы на 10.0.2.2 — то есть никуда.
+        run: test -n "${{ vars.API_BASE_URL }}" || { echo "Не задана переменная репозитория API_BASE_URL"; exit 1; }
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.38.6"
+          channel: stable
+          cache: true
+      - run: flutter pub get --enforce-lockfile
+      - run: flutter test
+      - name: Релизный APK
+        run: |
+          flutter build apk --release --dart-define=API_BASE_URL=${{ vars.API_BASE_URL }}
+          mv build/app/outputs/flutter-apk/app-release.apk "shift-diary-${GITHUB_REF_NAME}.apk"
+      - uses: softprops/action-gh-release@v3
+        with:
+          files: app/shift-diary-${{ github.ref_name }}.apk
+          generate_release_notes: true

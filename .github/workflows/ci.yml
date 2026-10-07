@@ -50,3 +50,41 @@ jobs:
       - name: Журнал сервера
         if: always()
         run: docker logs server
+
+  app:
+    name: Приложение — анализатор, тесты, APK
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: subosito/flutter-action@v2
+        with:
+          # Та же версия, что в разработке.
+          flutter-version: "3.38.6"
+          channel: stable
+          cache: true
+      - name: Зависимости строго по pubspec.lock
+        run: flutter pub get --enforce-lockfile
+      - name: Сгенерированные тексты соответствуют app_ru.arb
+        run: flutter gen-l10n && git diff --exit-code lib/l10n
+      - name: Форматирование
+        run: dart format --output=none --set-exit-if-changed lib test
+      - name: Анализатор
+        run: flutter analyze
+      # Раннер работает в UTC, разработка — в UTC+5: тесты, зависящие от пояса машины,
+      # здесь бы упали.
+      - name: Тесты
+        run: flutter test
+      - name: Релизный APK
+        run: flutter build apk --release --dart-define=API_BASE_URL=${{ vars.API_BASE_URL }}
+      - uses: actions/upload-artifact@v7
+        with:
+          name: shift-diary-apk
+          path: app/build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
