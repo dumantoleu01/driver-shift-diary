@@ -362,6 +362,100 @@ def test_simultaneous_repeats_create_one_trip(app: FastAPI) -> None:
     }
 
 
+# --- дневники водителей ---------------------------------------------------------------------
+
+ALI = {"X-Driver-Id": "ali"}
+BOLAT = {"X-Driver-Id": "bolat"}
+
+
+def test_new_driver_starts_with_the_sample(sample: TestClient) -> None:
+    """Первое же обращение незнакомого водителя отдаёт дневник с образцом поездок."""
+    days = sample.get("/api/days", headers=ALI).json()["days"]
+
+    assert [(entry["date"], entry["trips"]) for entry in days] == [
+        ("2026-09-29", 5),
+        ("2026-09-30", 6),
+        ("2026-10-01", 6),
+        ("2026-10-03", 4),
+        ("2026-10-04", 6),
+    ]
+
+
+def test_trip_of_one_driver_is_invisible_to_others(sample: TestClient) -> None:
+    """Поездка попадает только в дневник своего водителя — ни к другому, ни в общий."""
+    new = trip(id="ali-1", start="2026-10-05T08:10:00+05:00", end="2026-10-05T08:32:00+05:00")
+
+    assert sample.post("/api/trips", json=new, headers=ALI).status_code == 201
+
+    def trips_on_oct_5(headers: dict[str, str] | None) -> int:
+        response = sample.get("/api/days/2026-10-05", headers=headers)
+        count: int = response.json()["summary"]["trips"]
+        return count
+
+    assert trips_on_oct_5(ALI) == 1
+    assert trips_on_oct_5(BOLAT) == 0
+    assert trips_on_oct_5(None) == 0
+
+
+def test_same_trip_of_two_drivers_is_not_a_duplicate(client: TestClient) -> None:
+    """Повтор ищется в дневнике водителя: та же поездка у другого водителя — новая запись."""
+    statuses = [
+        client.post("/api/trips", json=T1, headers=ALI).status_code,
+        client.post("/api/trips", json=T1, headers=BOLAT).status_code,
+        client.post("/api/trips", json=T1, headers=ALI).status_code,
+        client.post("/api/trips", json=T1, headers=BOLAT).status_code,
+    ]
+
+    assert statuses == [201, 201, 200, 200]
+
+
+def test_occupied_id_is_free_for_another_driver(client: TestClient) -> None:
+    client.post("/api/trips", json=T1, headers=ALI)
+
+    theirs = client.post("/api/trips", json=trip(amount=9900), headers=BOLAT)
+    mine = client.post("/api/trips", json=trip(amount=9900), headers=ALI)
+
+    assert theirs.status_code == 201
+    assert mine.status_code == 409
+
+
+def test_request_without_driver_goes_to_the_shared_diary(sample: TestClient) -> None:
+    """Запросы из README и со страницы /docs работают без заголовка."""
+    without_header = sample.get("/api/days").json()
+    as_demo = sample.get("/api/days", headers={"X-Driver-Id": "demo"}).json()
+
+    assert without_header == as_demo
+    assert len(without_header["days"]) == 5
+
+
+@pytest.mark.parametrize("driver", ["", "two words", "a/b", "x" * 65])
+def test_bad_driver_id_is_400(client: TestClient, driver: str) -> None:
+    response = client.get("/api/days", headers={"X-Driver-Id": driver})
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "invalid_driver"
+
+
+def test_simultaneous_first_requests_of_new_driver_see_the_whole_sample(
+    tmp_path: Path,
+) -> None:
+    """Двадцать одновременных первых запросов: каждый видит образец целиком, и он один."""
+    app = create_app(Settings(db_path=tmp_path / "trips.sqlite3", seed_path=SAMPLE))
+    rivals = 20
+    barrier = Barrier(rivals)
+
+    def first_request(_: int) -> int:
+        client = TestClient(app)
+        barrier.wait()
+        days = client.get("/api/days", headers=ALI).json()["days"]
+        return sum(entry["trips"] for entry in days)
+
+    with ThreadPoolExecutor(max_workers=rivals) as pool:
+        seen = list(pool.map(first_request, range(rivals)))
+
+    assert seen == [27] * rivals
+
+
 # --- проверка данных ------------------------------------------------------------------------
 
 
@@ -509,7 +603,7 @@ def test_unexpected_failure_is_500_without_internals(
 ) -> None:
     """Сбой внутри сервера — тот же формат ошибки; текст исключения наружу не уходит."""
 
-    def broken(_: TripStore) -> list[object]:
+    def broken(_: TripStore, __: str) -> list[object]:
         raise RuntimeError("секретный путь /var/lib/trips.sqlite3")
 
     monkeypatch.setattr(TripStore, "starts", broken)

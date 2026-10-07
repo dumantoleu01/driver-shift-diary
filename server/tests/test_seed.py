@@ -1,13 +1,9 @@
 import json
-from datetime import date
 from pathlib import Path
 
 import pytest
 
-from shift_diary.domain.day import count_by_day
-from shift_diary.seed import load_seed
-from shift_diary.storage import TripStore
-from tests.helpers import SERVICE_ZONE
+from shift_diary.seed import read_sample
 
 SAMPLE = Path(__file__).resolve().parents[2] / "data" / "trips.json"
 
@@ -21,95 +17,75 @@ T1 = {
 }
 
 
-@pytest.fixture
-def store(tmp_path: Path) -> TripStore:
-    return TripStore(tmp_path / "trips.sqlite3")
-
-
 def write(tmp_path: Path, content: object) -> Path:
     path = tmp_path / "seed.json"
     path.write_text(json.dumps(content), encoding="utf-8")
     return path
 
 
-def test_sample_file_loads_completely(store: TripStore) -> None:
+def test_sample_file_is_accepted_completely() -> None:
     """Образец из репозитория проходит ту же проверку, что и запросы, без единого отказа."""
-    report = load_seed(SAMPLE, store)
+    sample = read_sample(SAMPLE)
 
-    assert report.created == 27
-    assert report.rejected == []
-    assert count_by_day(store.starts(), SERVICE_ZONE) == {
-        date(2026, 9, 29): 5,
-        date(2026, 9, 30): 6,
-        date(2026, 10, 1): 6,
-        date(2026, 10, 3): 4,
-        date(2026, 10, 4): 6,
-    }
+    assert len(sample.trips) == 27
+    assert sample.duplicates == 0
+    assert sample.rejected == ()
+    assert {"t1", "t2", "t13", "t14"} <= {trip.id for trip in sample.trips}
 
 
-def test_loading_twice_adds_nothing(store: TripStore) -> None:
-    """Образец читается при каждом запуске сервера — второй раз он ничего не удваивает."""
-    load_seed(SAMPLE, store)
+def test_bad_record_is_skipped_and_reported(tmp_path: Path) -> None:
+    sample = read_sample(write(tmp_path, [T1, {**T1, "id": "t2", "amount": 0}, "мусор"]))
 
-    again = load_seed(SAMPLE, store)
+    assert [trip.id for trip in sample.trips] == ["t1"]
+    assert len(sample.rejected) == 2
+    assert "запись 2" in sample.rejected[0]
+    assert "must_be_positive" in sample.rejected[0]
+    assert "запись 3" in sample.rejected[1]
 
-    assert again.created == 0
-    assert again.duplicates == 27
-    assert len(store.starts()) == 27
+
+def test_repeated_record_is_taken_once(tmp_path: Path) -> None:
+    """Повтор в самом файле — по `id` или по содержимому — не становится второй поездкой."""
+    sample = read_sample(write(tmp_path, [T1, T1, {**T1, "id": "copy"}]))
+
+    assert [trip.id for trip in sample.trips] == ["t1"]
+    assert sample.duplicates == 2
+    assert sample.rejected == ()
 
 
-def test_records_without_id_are_not_doubled_either(tmp_path: Path, store: TripStore) -> None:
-    """Без `id` сервер назначает новый при каждой загрузке — спасает совпадение по содержимому."""
+def test_same_id_with_other_content_is_reported(tmp_path: Path) -> None:
+    sample = read_sample(write(tmp_path, [T1, {**T1, "amount": 9900}]))
+
+    assert [trip.amount for trip in sample.trips] == [2400]
+    assert len(sample.rejected) == 1
+    assert "занят" in sample.rejected[0]
+
+
+def test_record_without_id_gets_one(tmp_path: Path) -> None:
     record = {key: value for key, value in T1.items() if key != "id"}
-    path = write(tmp_path, [record])
 
-    load_seed(path, store)
-    again = load_seed(path, store)
+    [trip] = read_sample(write(tmp_path, [record])).trips
 
-    assert again.duplicates == 1
-    assert len(store.starts()) == 1
+    assert trip.id
 
 
-def test_bad_record_is_skipped_and_reported(tmp_path: Path, store: TripStore) -> None:
-    path = write(tmp_path, [T1, {**T1, "id": "t2", "amount": 0}, "мусор"])
-
-    report = load_seed(path, store)
-
-    assert report.created == 1
-    assert len(report.rejected) == 2
-    assert "запись 2" in report.rejected[0]
-    assert "must_be_positive" in report.rejected[0]
-    assert "запись 3" in report.rejected[1]
-
-
-def test_same_id_with_other_content_is_reported(tmp_path: Path, store: TripStore) -> None:
-    path = write(tmp_path, [T1, {**T1, "amount": 9900}])
-
-    report = load_seed(path, store)
-
-    assert report.created == 1
-    assert len(report.rejected) == 1
-    assert "занят" in report.rejected[0]
-
-
-def test_file_with_bom_is_still_valid(tmp_path: Path, store: TripStore) -> None:
+def test_file_with_bom_is_still_valid(tmp_path: Path) -> None:
     """Редактор мог сохранить файл с меткой BOM — от этого он не перестал быть JSON."""
     path = tmp_path / "seed.json"
     path.write_text(json.dumps([T1]), encoding="utf-8-sig")
 
-    assert load_seed(path, store).created == 1
+    assert len(read_sample(path).trips) == 1
 
 
 @pytest.mark.parametrize("content", ['{"id": "t1"}', "не json", ""])
-def test_unreadable_file_stops_startup(tmp_path: Path, store: TripStore, content: str) -> None:
-    """Сервер с пустой базой вместо данных выглядел бы исправным — лучше не запускаться."""
+def test_unreadable_file_stops_startup(tmp_path: Path, content: str) -> None:
+    """Сервер с пустыми дневниками вместо данных выглядел бы исправным — лучше не запускаться."""
     path = tmp_path / "seed.json"
     path.write_text(content, encoding="utf-8")
 
     with pytest.raises(ValueError, match="образец"):
-        load_seed(path, store)
+        read_sample(path)
 
 
-def test_missing_file_stops_startup(tmp_path: Path, store: TripStore) -> None:
+def test_missing_file_stops_startup(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="образец"):
-        load_seed(tmp_path / "нет-такого.json", store)
+        read_sample(tmp_path / "нет-такого.json")

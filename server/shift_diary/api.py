@@ -10,8 +10,9 @@ import datetime as dt
 import logging
 import re
 from collections.abc import Mapping
+from typing import Annotated
 
-from fastapi import FastAPI, Request, Response
+from fastapi import Depends, FastAPI, Header, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -19,11 +20,12 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from shift_diary.config import Settings
 from shift_diary.domain.day import count_by_day, day_bounds, parse_utc_offset
+from shift_diary.domain.driver import DEFAULT_DRIVER, is_driver_id
 from shift_diary.domain.rules import EARLIEST, LATEST
 from shift_diary.domain.summary import summarize
 from shift_diary.domain.trip import Payment, Trip
 from shift_diary.payload import InvalidTrip, TripPayload, field_errors
-from shift_diary.seed import load_seed
+from shift_diary.seed import Sample, read_sample
 from shift_diary.storage import AddOutcome, TripStore
 
 logger = logging.getLogger(__name__)
@@ -140,17 +142,39 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or Settings.from_env()
     zone = parse_utc_offset(settings.utc_offset)
     store = TripStore(settings.db_path)
-    if settings.seed_path is not None:
-        load_seed(settings.seed_path, store)
+    sample = read_sample(settings.seed_path) if settings.seed_path is not None else Sample()
 
     app = FastAPI(
         title="Дневник смен водителя",
-        version="1.0.0",
+        version="1.1.0",
         description=(
             f"Поездки и сводка за день. День считается в поясе сервиса (UTC{settings.utc_offset}); "
-            "поездка относится к дню своего начала."
+            "поездка относится к дню своего начала.\n\n"
+            "У каждого водителя свой дневник; водитель задаётся заголовком `X-Driver-Id`. Новый "
+            "дневник начинается с образца поездок. Без заголовка запрос идёт в общий дневник "
+            f"`{DEFAULT_DRIVER}`. Идентификатор разделяет дневники, но не защищает их: это не вход."
         ),
     )
+
+    def current_driver(
+        x_driver_id: Annotated[
+            str | None,
+            Header(description=f"Чей дневник. Без заголовка — общий дневник `{DEFAULT_DRIVER}`."),
+        ] = None,
+    ) -> str:
+        """Водитель из заголовка. При первом обращении его дневник заводится с образцом."""
+        driver = DEFAULT_DRIVER if x_driver_id is None else x_driver_id
+        if not is_driver_id(driver):
+            raise ApiError(
+                400,
+                "invalid_driver",
+                "X-Driver-Id: от 1 до 64 знаков — латинские буквы, цифры, точка, дефис, "
+                "подчёркивание, двоеточие",
+            )
+        store.register(driver, sample.trips)
+        return driver
+
+    Driver = Annotated[str, Depends(current_driver)]
 
     def trip_out(trip: Trip) -> TripOut:
         # Время отдаётся в поясе сервиса, в каком бы поясе его ни прислали: клиент показывает
@@ -169,8 +193,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return {"status": "ok"}
 
     @app.get("/api/days", summary="Дни, в которых есть поездки")
-    def list_days() -> DaysOut:
-        counts = count_by_day(store.starts(), zone)
+    def list_days(driver: Driver) -> DaysOut:
+        counts = count_by_day(store.starts(driver), zone)
         return DaysOut(
             utc_offset=settings.utc_offset.strip(),
             days=[DayCountOut(date=day, trips=trips) for day, trips in counts.items()],
@@ -181,11 +205,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         summary="Сводка и поездки за день",
         responses={400: {"model": ErrorOut, "description": "Дата не в формате ГГГГ-ММ-ДД"}},
     )
-    def get_day(day: str) -> DayOut:
+    def get_day(day: str, driver: Driver) -> DayOut:
         # Сводка и список отдаются одним ответом, из одной выборки: между двумя запросами
         # могла бы добавиться поездка, и итог перестал бы сходиться со списком.
         chosen = _parse_day(day)
-        trips = store.starting_between(*day_bounds(chosen, zone))
+        trips = store.starting_between(driver, *day_bounds(chosen, zone))
         summary = summarize(trips)
         return DayOut(
             date=chosen,
@@ -209,7 +233,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         description=(
             "Повторная отправка той же поездки не создаёт дубль: ответ `200` с уже записанной "
             "поездкой. Той же считается поездка с тем же `id` или с теми же началом, концом, "
-            "суммой, оплатой и комиссией."
+            "суммой, оплатой и комиссией — в дневнике того же водителя."
         ),
         responses={
             200: {"model": TripOut, "description": "Такая поездка уже записана — повтор"},
@@ -218,13 +242,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             422: {"model": ErrorOut, "description": "Поездка не прошла проверку"},
         },
     )
-    def add_trip(payload: TripPayload, response: Response) -> TripOut:
+    def add_trip(payload: TripPayload, response: Response, driver: Driver) -> TripOut:
         try:
             trip = payload.to_trip()
         except InvalidTrip as error:
             raise _invalid_trip(error.fields) from error
 
-        result = store.add(trip)
+        result = store.add(driver, trip)
         if result.outcome is AddOutcome.CONFLICT:
             raise ApiError(409, "id_conflict", f"Под id {trip.id!r} уже записана другая поездка")
         if result.outcome is AddOutcome.DUPLICATE:

@@ -1,31 +1,35 @@
-"""Загрузка образца поездок из JSON-файла."""
+"""Образец поездок из JSON-файла.
+
+С образца начинается дневник каждого нового водителя: файл читается один раз при запуске, а
+его поездки записываются водителю при первом обращении.
+"""
 
 import json
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
+from shift_diary.domain.trip import Trip
 from shift_diary.payload import InvalidTrip, parse_trip
-from shift_diary.storage import AddOutcome, TripStore
 
 logger = logging.getLogger(__name__)
 
 
-@dataclass(slots=True)
-class SeedReport:
-    created: int = 0
-    #: Уже были в хранилище — так выглядит каждый запуск после первого.
+@dataclass(frozen=True, slots=True)
+class Sample:
+    #: Поездки, годные для записи: без повторов и без двух разных поездок под одним `id`.
+    trips: tuple[Trip, ...] = ()
+    #: Сколько записей файла повторяли уже принятую поездку.
     duplicates: int = 0
-    #: Записи, которые не загружены, с причиной.
-    rejected: list[str] = field(default_factory=list)
+    #: Записи, которые не приняты, с причиной.
+    rejected: tuple[str, ...] = ()
 
 
-def load_seed(path: Path, store: TripStore) -> SeedReport:
-    """Загрузить поездки из файла тем же путём, каким их добавляет API.
+def read_sample(path: Path) -> Sample:
+    """Прочитать образец, проверив каждую запись теми же правилами, что и запросы.
 
-    Загрузка идёт при каждом запуске и ничего не удваивает: повтор отсекает хранилище.
     Негодная запись пропускается с предупреждением, а нечитаемый файл останавливает запуск —
-    сервер с пустой базой вместо данных выглядел бы исправным, не будучи им.
+    сервер с пустыми дневниками вместо данных выглядел бы исправным, не будучи им.
     """
     try:
         # utf-8-sig: файл, сохранённый редактором с меткой BOM, — тоже годный JSON.
@@ -35,29 +39,32 @@ def load_seed(path: Path, store: TripStore) -> SeedReport:
     if not isinstance(records, list):
         raise ValueError(f"образец {path} должен быть JSON-массивом поездок")
 
-    report = SeedReport()
+    accepted: list[Trip] = []
+    duplicates = 0
+    rejected: list[str] = []
     for number, record in enumerate(records, start=1):
         try:
             trip = parse_trip(record)
         except InvalidTrip as error:
-            report.rejected.append(f"запись {number}: {error}")
+            rejected.append(f"запись {number}: {error}")
             continue
 
-        outcome = store.add(trip).outcome
-        if outcome is AddOutcome.CREATED:
-            report.created += 1
-        elif outcome is AddOutcome.DUPLICATE:
-            report.duplicates += 1
+        # Те же два признака повтора, что и в хранилище: по `id` и по содержимому.
+        same_id = next((other for other in accepted if other.id == trip.id), None)
+        if same_id is not None and not same_id.same_ride(trip):
+            rejected.append(f"запись {number}: id {trip.id!r} занят другой поездкой")
+        elif same_id is not None or any(other.same_ride(trip) for other in accepted):
+            duplicates += 1
         else:
-            report.rejected.append(f"запись {number}: id {trip.id!r} занят другой поездкой")
+            accepted.append(trip)
 
-    for problem in report.rejected:
+    for problem in rejected:
         logger.warning("Образец %s, %s", path.name, problem)
     logger.info(
-        "Образец %s: добавлено %d, уже было %d, пропущено %d",
+        "Образец %s: поездок %d, повторов %d, пропущено %d",
         path.name,
-        report.created,
-        report.duplicates,
-        len(report.rejected),
+        len(accepted),
+        duplicates,
+        len(rejected),
     )
-    return report
+    return Sample(trips=tuple(accepted), duplicates=duplicates, rejected=tuple(rejected))
