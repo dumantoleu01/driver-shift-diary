@@ -33,6 +33,8 @@ class DriversLocalDataSourceImpl implements DriversLocalDataSource {
             DriverProfile(
               id: (item as Map<String, dynamic>)['id'] as String,
               number: item['number'] as int,
+              // Запись, сделанная до появления имён, читается как «без имени».
+              name: item['name'] as String?,
             ),
         ],
       );
@@ -55,7 +57,7 @@ class DriversLocalDataSourceImpl implements DriversLocalDataSource {
         'current': roster.currentId,
         'profiles': [
           for (final profile in roster.profiles)
-            {'id': profile.id, 'number': profile.number},
+            {'id': profile.id, 'number': profile.number, 'name': ?profile.name},
         ],
       }),
     );

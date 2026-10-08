@@ -5,6 +5,7 @@ import '../../../../core/theme/app_dimens.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../cubit/drivers_cubit.dart';
 import '../cubit/drivers_state.dart';
+import 'driver_label.dart';
 import 'drivers_sheet.dart';
 
 /// Кнопка в шапке: чей дневник сейчас открыт, и переход к смене водителя.
@@ -30,7 +31,15 @@ class DriverButton extends StatelessWidget {
               key: const ValueKey('driver-button'),
               onPressed: () => showDriversSheet(context),
               icon: const Icon(Icons.person_outline),
-              label: Text(l10n.driverName(current.number)),
+              // Длинное имя не должно выдавливать заголовок экрана.
+              label: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 140),
+                child: Text(
+                  current.label(l10n),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
             ),
           ),
         );

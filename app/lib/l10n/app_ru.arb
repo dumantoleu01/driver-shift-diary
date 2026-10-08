@@ -19,6 +19,16 @@
   "driversHint": "У каждого водителя свой дневник. Пароля нет: водители разделены, но не защищены",
   "driverSwitch": "Сменить водителя",
   "driverNew": "Новый водитель",
+  "driverCreate": "Создать",
+  "driverRename": "Переименовать",
+  "driverNameLabel": "Имя водителя",
+  "driverNameHelper": "Имя хранится только на этом телефоне. Пустое поле — «{fallback}»",
+  "@driverNameHelper": {
+    "placeholders": {"fallback": {"type": "String"}}
+  },
+  "driverNameTaken": "Такое имя уже есть",
+  "actionSave": "Сохранить",
+  "actionCancel": "Отмена",
   "driverNewHint": "Его дневник начнётся с образца поездок",
 
   "summaryNet": "На руки",

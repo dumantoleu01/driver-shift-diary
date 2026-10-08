@@ -172,6 +172,48 @@ abstract class AppLocalizations {
   /// **'Новый водитель'**
   String get driverNew;
 
+  /// No description provided for @driverCreate.
+  ///
+  /// In ru, this message translates to:
+  /// **'Создать'**
+  String get driverCreate;
+
+  /// No description provided for @driverRename.
+  ///
+  /// In ru, this message translates to:
+  /// **'Переименовать'**
+  String get driverRename;
+
+  /// No description provided for @driverNameLabel.
+  ///
+  /// In ru, this message translates to:
+  /// **'Имя водителя'**
+  String get driverNameLabel;
+
+  /// No description provided for @driverNameHelper.
+  ///
+  /// In ru, this message translates to:
+  /// **'Имя хранится только на этом телефоне. Пустое поле — «{fallback}»'**
+  String driverNameHelper(String fallback);
+
+  /// No description provided for @driverNameTaken.
+  ///
+  /// In ru, this message translates to:
+  /// **'Такое имя уже есть'**
+  String get driverNameTaken;
+
+  /// No description provided for @actionSave.
+  ///
+  /// In ru, this message translates to:
+  /// **'Сохранить'**
+  String get actionSave;
+
+  /// No description provided for @actionCancel.
+  ///
+  /// In ru, this message translates to:
+  /// **'Отмена'**
+  String get actionCancel;
+
   /// No description provided for @driverNewHint.
   ///
   /// In ru, this message translates to:

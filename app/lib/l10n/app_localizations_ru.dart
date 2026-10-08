@@ -52,6 +52,29 @@ class AppLocalizationsRu extends AppLocalizations {
   String get driverNew => 'Новый водитель';
 
   @override
+  String get driverCreate => 'Создать';
+
+  @override
+  String get driverRename => 'Переименовать';
+
+  @override
+  String get driverNameLabel => 'Имя водителя';
+
+  @override
+  String driverNameHelper(String fallback) {
+    return 'Имя хранится только на этом телефоне. Пустое поле — «$fallback»';
+  }
+
+  @override
+  String get driverNameTaken => 'Такое имя уже есть';
+
+  @override
+  String get actionSave => 'Сохранить';
+
+  @override
+  String get actionCancel => 'Отмена';
+
+  @override
   String get driverNewHint => 'Его дневник начнётся с образца поездок';
 
   @override

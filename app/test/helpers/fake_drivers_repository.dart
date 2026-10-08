@@ -4,6 +4,7 @@ import 'package:shift_diary/features/drivers/domain/entities/driver_profile.dart
 import 'package:shift_diary/features/drivers/domain/repositories/drivers_repository.dart';
 import 'package:shift_diary/features/drivers/domain/usecases/create_driver.dart';
 import 'package:shift_diary/features/drivers/domain/usecases/load_drivers.dart';
+import 'package:shift_diary/features/drivers/domain/usecases/rename_driver.dart';
 import 'package:shift_diary/features/drivers/domain/usecases/select_driver.dart';
 import 'package:shift_diary/features/drivers/presentation/cubit/drivers_cubit.dart';
 
@@ -21,13 +22,31 @@ class FakeDriversRepository implements DriversRepository {
   Future<Either<Failure, DriverRoster>> load() async => _answer(roster);
 
   @override
-  Future<Either<Failure, DriverRoster>> create() async {
-    final number = roster.profiles.length + 1;
-    final added = DriverProfile(id: 'driver-$number', number: number);
+  Future<Either<Failure, DriverRoster>> create({String? name}) async {
+    final number = roster.nextNumber;
+    final added = DriverProfile(
+      id: 'driver-$number',
+      number: number,
+      name: normalizeDriverName(name),
+    );
     return _answer(
       DriverRoster(profiles: [...roster.profiles, added], currentId: added.id),
     );
   }
+
+  @override
+  Future<Either<Failure, DriverRoster>> rename(String id, String? name) async =>
+      _answer(
+        DriverRoster(
+          profiles: [
+            for (final profile in roster.profiles)
+              profile.id == id
+                  ? profile.renamed(normalizeDriverName(name))
+                  : profile,
+          ],
+          currentId: roster.currentId,
+        ),
+      );
 
   @override
   Future<Either<Failure, DriverRoster>> select(String id) async =>
@@ -50,6 +69,7 @@ Future<DriversCubit> loadedDriversCubit(FakeDriversRepository repo) async {
     LoadDrivers(repo),
     CreateDriver(repo),
     SelectDriver(repo),
+    RenameDriver(repo),
   );
   await cubit.load();
   return cubit;

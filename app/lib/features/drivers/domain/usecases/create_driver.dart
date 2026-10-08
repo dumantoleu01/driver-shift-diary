@@ -5,12 +5,13 @@ import '../../../../core/usecases/usecase.dart';
 import '../entities/driver_profile.dart';
 import '../repositories/drivers_repository.dart';
 
-class CreateDriver implements UseCase<DriverRoster, NoParams> {
+/// Параметр — имя нового водителя; `null` — без имени.
+class CreateDriver implements UseCase<DriverRoster, String?> {
   CreateDriver(this.repository);
 
   final DriversRepository repository;
 
   @override
-  Future<Either<Failure, DriverRoster>> call(NoParams params) =>
-      repository.create();
+  Future<Either<Failure, DriverRoster>> call(String? name) =>
+      repository.create(name: name);
 }

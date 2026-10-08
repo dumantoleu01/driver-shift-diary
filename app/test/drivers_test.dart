@@ -146,6 +146,88 @@ void main() {
     );
   });
 
+  group('имена водителей', () {
+    test('водителя можно завести сразу с именем', () async {
+      final repo = await repository();
+      await repo.load();
+
+      final roster = rosterOf(await repo.create(name: '  Али   Сериков '));
+
+      expect(
+        roster.current,
+        const DriverProfile(id: 'id-2', number: 2, name: 'Али Сериков'),
+      );
+    });
+
+    test(
+      'переименование не меняет ни идентификатор, ни выбранного водителя',
+      () async {
+        // Дневник на сервере привязан к идентификатору: сменись он вместе с
+        // именем, водитель «потерял» бы все свои поездки.
+        final repo = await repository();
+        await repo.load();
+        await repo.create(name: 'Болат');
+
+        final roster = rosterOf(await repo.rename('id-1', 'Али'));
+
+        expect(roster.profiles, [
+          const DriverProfile(id: 'id-1', number: 1, name: 'Али'),
+          const DriverProfile(id: 'id-2', number: 2, name: 'Болат'),
+        ]);
+        expect(roster.currentId, 'id-2');
+        expect(session.id, 'id-2');
+      },
+    );
+
+    test('имя переживает перезапуск', () async {
+      final repo = await repository();
+      await repo.load();
+      await repo.rename('id-1', 'Али');
+
+      final roster = rosterOf(await (await repository()).load());
+
+      expect(roster.current.name, 'Али');
+    });
+
+    test('пустое имя возвращает показ по номеру', () async {
+      final repo = await repository();
+      await repo.load();
+      await repo.rename('id-1', 'Али');
+
+      final roster = rosterOf(await repo.rename('id-1', '   '));
+
+      expect(roster.current.name, isNull);
+    });
+
+    test('слишком длинное имя обрезается', () {
+      final name = normalizeDriverName('А' * 100);
+
+      expect(name, hasLength(maxDriverNameLength));
+    });
+
+    test(
+      'запись, сделанная до появления имён, читается как «без имени»',
+      () async {
+        SharedPreferences.setMockInitialValues({
+          'drivers.roster.v1':
+              '{"current": "old-1", "profiles": [{"id": "old-1", "number": 1}]}',
+        });
+
+        final roster = rosterOf(await (await repository()).load());
+
+        expect(roster.current, const DriverProfile(id: 'old-1', number: 1));
+        expect(session.id, 'old-1');
+      },
+    );
+
+    test('переименовать водителя, которого на телефоне нет, нельзя', () async {
+      final repo = await repository();
+      await repo.load();
+
+      expect((await repo.rename('чужой', 'Али')).isLeft(), isTrue);
+    });
+  });
+
   group('DriversCubit', () {
     test('читает список, заводит и выбирает водителей', () async {
       final repo = FakeDriversRepository();
@@ -159,6 +241,18 @@ void main() {
 
       await cubit.select('driver-1');
       expect(cubit.state.current?.number, 1);
+    });
+
+    test('даёт и меняет имя, не трогая выбор', () async {
+      final repo = FakeDriversRepository();
+      final cubit = await loadedDriversCubit(repo);
+      addTearDown(cubit.close);
+
+      await cubit.create('Болат');
+      await cubit.rename('driver-1', 'Али');
+
+      expect(cubit.state.current?.name, 'Болат');
+      expect(cubit.state.roster?.profiles.first.name, 'Али');
     });
 
     test('сбой оставляет прежнего водителя и поднимает сообщение', () async {

@@ -35,20 +35,22 @@ class DriversRepositoryImpl implements DriversRepository {
   });
 
   @override
-  Future<Either<Failure, DriverRoster>> create() => _guard(() async {
-    final profiles = (await local.read())?.profiles ?? const <DriverProfile>[];
-    final last = profiles.fold(
-      0,
-      (max, profile) => profile.number > max ? profile.number : max,
-    );
-    final added = DriverProfile(id: newId(), number: last + 1);
-    final roster = DriverRoster(
-      profiles: [...profiles, added],
-      currentId: added.id,
-    );
-    await local.write(roster);
-    return roster;
-  });
+  Future<Either<Failure, DriverRoster>> create({String? name}) =>
+      _guard(() async {
+        final saved = await local.read();
+        final profiles = saved?.profiles ?? const <DriverProfile>[];
+        final added = DriverProfile(
+          id: newId(),
+          number: saved?.nextNumber ?? 1,
+          name: normalizeDriverName(name),
+        );
+        final roster = DriverRoster(
+          profiles: [...profiles, added],
+          currentId: added.id,
+        );
+        await local.write(roster);
+        return roster;
+      });
 
   @override
   Future<Either<Failure, DriverRoster>> select(String id) => _guard(() async {
@@ -60,6 +62,28 @@ class DriversRepositoryImpl implements DriversRepository {
     await local.write(roster);
     return roster;
   });
+
+  @override
+  Future<Either<Failure, DriverRoster>> rename(String id, String? name) =>
+      _guard(() async {
+        final saved = await local.read();
+        if (saved == null ||
+            saved.profiles.every((profile) => profile.id != id)) {
+          throw StateError('Водителя $id нет на этом телефоне');
+        }
+        final roster = DriverRoster(
+          profiles: [
+            for (final profile in saved.profiles)
+              profile.id == id
+                  ? profile.renamed(normalizeDriverName(name))
+                  : profile,
+          ],
+          // Переименование не меняет выбор: открыт тот же дневник.
+          currentId: saved.currentId,
+        );
+        await local.write(roster);
+        return roster;
+      });
 
   Future<Either<Failure, DriverRoster>> _guard(
     Future<DriverRoster> Function() action,

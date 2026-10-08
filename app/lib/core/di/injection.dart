@@ -8,6 +8,7 @@ import '../../features/drivers/data/repositories/drivers_repository_impl.dart';
 import '../../features/drivers/domain/repositories/drivers_repository.dart';
 import '../../features/drivers/domain/usecases/create_driver.dart';
 import '../../features/drivers/domain/usecases/load_drivers.dart';
+import '../../features/drivers/domain/usecases/rename_driver.dart';
 import '../../features/drivers/domain/usecases/select_driver.dart';
 import '../../features/drivers/presentation/cubit/drivers_cubit.dart';
 import '../../features/shifts/data/datasources/shifts_remote_datasource.dart';
@@ -54,6 +55,7 @@ Future<void> configureDependencies() async {
     ..registerLazySingleton(() => LoadDrivers(getIt<DriversRepository>()))
     ..registerLazySingleton(() => CreateDriver(getIt<DriversRepository>()))
     ..registerLazySingleton(() => SelectDriver(getIt<DriversRepository>()))
+    ..registerLazySingleton(() => RenameDriver(getIt<DriversRepository>()))
     // Кубит водителей один на всё время работы: он читается до первого запроса
     // к серверу и живёт над навигацией.
     ..registerLazySingleton(
@@ -61,6 +63,7 @@ Future<void> configureDependencies() async {
         getIt<LoadDrivers>(),
         getIt<CreateDriver>(),
         getIt<SelectDriver>(),
+        getIt<RenameDriver>(),
       ),
     )
     // --- дневник ---

@@ -236,25 +236,131 @@ void main() {
       expect(find.text('Водитель 1'), findsOneWidget);
     });
 
-    testWidgets('новый водитель: экран перечитывает дневник и открывает его '
-        'последний день', (tester) async {
+    /// Открыть список водителей.
+    Future<void> openDrivers(WidgetTester tester) async {
+      await tester.tap(find.byKey(const ValueKey('driver-button')));
+      await tester.pumpAndSettle();
+    }
+
+    final nameField = find.byKey(const ValueKey('driver-name-field'));
+    final confirm = find.byKey(const ValueKey('driver-name-confirm'));
+
+    testWidgets('новый водитель с именем: экран перечитывает дневник и '
+        'открывает его последний день', (tester) async {
       repo.reports[oct1] = reportOf(oct1, [t1]);
       await open(tester);
       expect(find.text('08:10 – 08:32'), findsOneWidget);
 
-      await tester.tap(find.byKey(const ValueKey('driver-button')));
+      await openDrivers(tester);
+      await tester.tap(find.byKey(const ValueKey('driver-new')));
       await tester.pumpAndSettle();
       // У нового водителя на сервере другой дневник.
       repo
         ..index = indexOf([sep30])
         ..reports[sep30] = reportOf(sep30, [t2]);
-      await tester.tap(find.byKey(const ValueKey('driver-new')));
+      await tester.enterText(nameField, 'Болат');
+      await tester.tap(confirm);
       await tester.pumpAndSettle();
 
-      expect(find.text('Водитель 2'), findsOneWidget);
+      expect(find.text('Болат'), findsOneWidget);
+      expect(drivers.state.current?.name, 'Болат');
       expect(textOf(tester, 'day-title'), 'Среда, 30 сентября');
       expect(find.text('08:10 – 08:32'), findsNothing);
       expect(cubit.state.report?.trips, [t2]);
+    });
+
+    testWidgets('новый водитель без имени называется по номеру', (
+      tester,
+    ) async {
+      await open(tester);
+
+      await openDrivers(tester);
+      await tester.tap(find.byKey(const ValueKey('driver-new')));
+      await tester.pumpAndSettle();
+      await tester.tap(confirm);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Водитель 2'), findsOneWidget);
+      expect(drivers.state.current?.name, isNull);
+    });
+
+    testWidgets('отмена в окне имени никого не заводит', (tester) async {
+      await open(tester);
+
+      await openDrivers(tester);
+      await tester.tap(find.byKey(const ValueKey('driver-new')));
+      await tester.pumpAndSettle();
+      await tester.enterText(nameField, 'Болат');
+      await tester.tap(find.text('Отмена'));
+      await tester.pumpAndSettle();
+
+      expect(drivers.state.roster?.profiles, hasLength(1));
+    });
+
+    testWidgets('переименование: имя меняется в списке и в шапке, а дневник '
+        'не перечитывается', (tester) async {
+      repo.reports[oct1] = reportOf(oct1, [t1]);
+      await open(tester);
+      final requestsBefore = repo.indexRequests;
+
+      await openDrivers(tester);
+      await tester.tap(find.byKey(const ValueKey('driver-rename-1')));
+      await tester.pumpAndSettle();
+      await tester.enterText(nameField, 'Али');
+      await tester.tap(confirm);
+      await tester.pumpAndSettle();
+
+      // Список остаётся открытым: имя видно и в нём, и в шапке под ним.
+      expect(find.text('Али'), findsNWidgets(2));
+      expect(drivers.state.current?.id, 'driver-1');
+      // Тот же водитель, тот же дневник — запрашивать нечего.
+      expect(repo.indexRequests, requestsBefore);
+      expect(find.text('08:10 – 08:32'), findsOneWidget);
+    });
+
+    testWidgets('в окне переименования стоит нынешнее имя', (tester) async {
+      await drivers.rename('driver-1', 'Али');
+      await open(tester);
+
+      await openDrivers(tester);
+      await tester.tap(find.byKey(const ValueKey('driver-rename-1')));
+      await tester.pumpAndSettle();
+
+      expect(tester.widget<TextField>(nameField).controller!.text, 'Али');
+    });
+
+    testWidgets('имя, которое уже есть у другого водителя, не принимается', (
+      tester,
+    ) async {
+      await drivers.rename('driver-1', 'Али');
+      await drivers.create('Болат');
+      await open(tester);
+
+      await openDrivers(tester);
+      await tester.tap(find.byKey(const ValueKey('driver-rename-2')));
+      await tester.pumpAndSettle();
+      await tester.enterText(nameField, ' али ');
+      await tester.tap(confirm);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Такое имя уже есть'), findsOneWidget);
+      expect(drivers.state.current?.name, 'Болат');
+
+      // Своё прежнее имя оставить можно.
+      await tester.enterText(nameField, 'Болат');
+      await tester.tap(confirm);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Такое имя уже есть'), findsNothing);
+      expect(find.byKey(const ValueKey('driver-name-field')), findsNothing);
+    });
+
+    testWidgets('длинное имя не ломает шапку', (tester) async {
+      await drivers.rename('driver-1', 'Александр Константинопольский');
+      await open(tester);
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('Дневник смен'), findsOneWidget);
     });
 
     testWidgets('переключение между водителями', (tester) async {
@@ -294,9 +400,10 @@ void main() {
         await open(tester);
         driversRepo.failure = const StorageFailure('нет места');
 
-        await tester.tap(find.byKey(const ValueKey('driver-button')));
-        await tester.pumpAndSettle();
+        await openDrivers(tester);
         await tester.tap(find.byKey(const ValueKey('driver-new')));
+        await tester.pumpAndSettle();
+        await tester.tap(confirm);
         await tester.pumpAndSettle();
 
         expect(find.text('Водитель 1'), findsOneWidget);
