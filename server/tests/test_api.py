@@ -616,6 +616,15 @@ def test_unexpected_failure_is_500_without_internals(
     }
 
 
+def test_root_leads_to_docs(client: TestClient) -> None:
+    """Главный адрес сервера не отвечает ошибкой, а ведёт на страницу с запросами."""
+    response = client.get("/", follow_redirects=False)
+
+    assert response.status_code == 307
+    assert response.headers["location"] == "/docs"
+    assert client.get("/").status_code == 200
+
+
 def test_health(client: TestClient) -> None:
     assert client.get("/health").json() == {"status": "ok"}
 

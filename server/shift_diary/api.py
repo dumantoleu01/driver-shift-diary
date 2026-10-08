@@ -14,7 +14,7 @@ from typing import Annotated
 
 from fastapi import Depends, FastAPI, Header, Request, Response
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
@@ -187,6 +187,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             payment=trip.payment,
             commission=trip.commission,
         )
+
+    @app.get("/", include_in_schema=False)
+    def root() -> RedirectResponse:
+        # Главный адрес сервера открывают первым делом. Ответ «такого адреса нет» выглядел бы
+        # как поломка, поэтому отсюда — на страницу, где запросы можно пробовать.
+        return RedirectResponse("/docs")
 
     @app.get("/health", include_in_schema=False)
     def health() -> dict[str, str]:
